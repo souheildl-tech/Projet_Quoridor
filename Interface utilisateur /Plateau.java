@@ -2,6 +2,7 @@ package com.quoridor;
 
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 
 
@@ -48,10 +49,28 @@ public class Plateau extends Pane {
                 grilleCases[i][j] = caseJeu;
                 this.getChildren().add(caseJeu);
             }
-        }
+        }        
     }
 
     public Rectangle getCase(int ligne, int colonne) {
         return grilleCases[ligne][colonne];
     }
+
+    public void placerPion(int ligne, int colonne, Color couleur) {
+        // 1. Calcul du centre exact de la case ciblée
+        double x = (colonne * (TAILLE_CASE + ESPACE_MUR)) + (TAILLE_CASE / 2.0);
+        double y = (ligne * (TAILLE_CASE + ESPACE_MUR)) + (TAILLE_CASE / 2.0);
+
+        // 2. Création du pion (cercle)
+        double rayon = TAILLE_CASE / 2.5;
+        Circle pion = new Circle(x, y, rayon);
+        
+        pion.setFill(couleur);
+        pion.setStroke(Color.BLACK);
+        pion.setStrokeWidth(2);
+
+        // 3. Ajout visuel sur le plateau
+        this.getChildren().add(pion);
+    }
+}
 }
