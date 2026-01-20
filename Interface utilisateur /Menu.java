@@ -3,6 +3,7 @@ package com.quoridor;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 public class Menu extends Application {
@@ -13,17 +14,20 @@ public class Menu extends Application {
         // 1. Création du Plateau
         Plateau monPlateau = new Plateau();
         
-        // 2. On le centre dans la fenêtre via un StackPane
+        // Joueur 1 (Blanc) en bas au milieu (Ligne 8, Colonne 4)
+        monPlateau.placerPion(8, 4, Color.WHITE);
+        
+        // Joueur 2 (Noir) en haut au milieu (Ligne 0, Colonne 4)
+        monPlateau.placerPion(0, 4, Color.BLACK);
+
+        // 2. Mise en page
         StackPane root = new StackPane(monPlateau);
-        
-        
         root.setStyle("-fx-padding: 20; -fx-background-color: #222222;");
 
-        // 3. Création de la scène
+        // 3. Création de la scène et configuration de la fenêtre
         Scene scene = new Scene(root);
         
-        // 4. Configuration de la fenêtre
-        stage.setTitle("Quoridor - Menu Principal");
+        stage.setTitle("Quoridor ");
         stage.setResizable(false);
         stage.setScene(scene);
         stage.show();
