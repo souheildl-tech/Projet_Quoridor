@@ -49,4 +49,34 @@ public class Plateau extends Pane {
         pionBlancVisuel.setCenterX(nouveauX);
         pionBlancVisuel.setCenterY(nouveauY);
     }
+    
+    public void placerMurVisuel(int ligne, int colonne, boolean horizontal) {
+        double largeurMur, hauteurMur;
+        double x, y;
+
+        if (horizontal) {
+            // MUR HORIZONTAL
+            largeurMur = (TAILLE_CASE * 2) + ESPACE_MUR; 
+            hauteurMur = ESPACE_MUR;                     
+            
+            x = (colonne * (TAILLE_CASE + ESPACE_MUR));
+            y = ((ligne + 1) * (TAILLE_CASE + ESPACE_MUR)) - ESPACE_MUR;
+            
+        } else {
+            // MUR VERTICAL
+            largeurMur = ESPACE_MUR;
+            hauteurMur = (TAILLE_CASE * 2) + ESPACE_MUR;
+            
+            x = ((colonne + 1) * (TAILLE_CASE + ESPACE_MUR)) - ESPACE_MUR;
+            y = (ligne * (TAILLE_CASE + ESPACE_MUR));
+        }
+
+        // Création visuelle du mur
+        Rectangle mur = new Rectangle(x, y, largeurMur, hauteurMur);
+        mur.setFill(Color.CHOCOLATE); // Couleur bois distincte
+        mur.setStroke(Color.BLACK);
+        
+        // Ajout au rendu graphique
+        this.getChildren().add(mur);
+    }
 }
