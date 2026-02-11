@@ -6,10 +6,20 @@ import java.util.List;
 public class Moteur {
     private int pionBlancLigne = 8;
     private int pionBlancCol = 4;
+    private int pionNoirLigne = 0;
+    private int pionNoirCol = 4;
     
     private boolean tourIA = false;
     private boolean partieTerminee = false;
     private List<MurLogique> mursPlaques = new ArrayList<>();
+
+
+
+    public void majPositionNoir(int ligne, int col) {
+        this.pionNoirLigne = ligne;
+        this.pionNoirCol = col;
+    }
+
 
     public class MurLogique {
         public int ligne, col;
