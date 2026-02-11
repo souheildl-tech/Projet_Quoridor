@@ -6,16 +6,41 @@ import javafx.scene.input.MouseButton;
 public class ControleurJeu {
     private Plateau vue;
     private Moteur modele;
+    
+    private QuoridorClient clientPython;
 
     public ControleurJeu(Plateau vue, Moteur modele) {
         this.vue = vue;
         this.modele = modele;
+        
+        // 1. On démarre la connexion réseau
+        initialiserReseau();
+        
+        // 2. On lance le jeu visuel
         initialiserJeu();
         attacherEcouteurs();
     }
 
+    private void initialiserReseau() {
+        try {
+            clientPython = new QuoridorClient();
+
+            boolean connecte = clientPython.startConnection("127.0.0.1", 65432);
+            
+            if (connecte) {
+                System.out.println(" Connecté avec succès au Cerveau Python !");
+            } else {
+                System.err.println(" ERREUR : Le serveur Python n'a pas répondu.");
+            }
+        } catch (Exception e) {
+            System.err.println("ERREUR CRITIQUE : Avez-vous lancé serveur.py ?");
+            e.printStackTrace();
+        }
+    }
+
     private void initialiserJeu() {
-        vue.placerPionVisuel(8, 4, javafx.scene.paint.Color.WHITE); // Initialisation visuelle
+        vue.placerPionVisuel(8, 4, javafx.scene.paint.Color.WHITE); 
+        vue.placerPionVisuel(0, 4, javafx.scene.paint.Color.BLACK); 
     }
 
     private void attacherEcouteurs() {
@@ -28,7 +53,6 @@ public class ControleurJeu {
 
             if (colClic >= 0 && colClic < Plateau.NB_CASES && ligClic >= 0 && ligClic < Plateau.NB_CASES) {
                 
-                // Clic GAUCHE : Déplacement
                 if (event.getButton() == MouseButton.PRIMARY) {
                     if (modele.estDeplacementValide(ligClic, colClic)) {
                         modele.majPositionBlanc(ligClic, colClic);
@@ -36,14 +60,11 @@ public class ControleurJeu {
                         actionValide = true;
                     }
                 }
-                // Clic DROIT : Pose de mur
-                else if (event.getButton() == MouseButton.SECONDARY || event.getButton() == MouseButton.MIDDLE) {
+                else if (event.getButton() == MouseButton.SECONDARY) {
                     if (ligClic >= Plateau.NB_CASES - 1 || colClic >= Plateau.NB_CASES - 1) return;
-                    boolean horizontal = (event.getButton() == MouseButton.SECONDARY);
-                    
                     if (modele.emplacementMurLibre(ligClic, colClic)) {
-                        modele.ajouterMur(ligClic, colClic, horizontal);
-                        vue.placerMurVisuel(ligClic, colClic, horizontal);
+                        modele.ajouterMur(ligClic, colClic, true);
+                        vue.placerMurVisuel(ligClic, colClic, true);
                         actionValide = true;
                     }
                 }
@@ -58,6 +79,7 @@ public class ControleurJeu {
             }
         });
     }
+
 
     private void passerLeTour() {
         modele.setTourIA(true);
