@@ -12,6 +12,8 @@ public class Plateau extends Pane {
     public static final int NB_CASES = 9;
     
     private Circle pionBlanc;
+    private Circle pionNoirVisuel;
+
 
     public Plateau() {
         dessinerGrille();
@@ -43,6 +45,19 @@ public class Plateau extends Pane {
     public void deplacerPionBlancVisuel(int ligne, int colonne) {
         pionBlanc.setCenterX(calculerCentre(colonne));
         pionBlanc.setCenterY(calculerCentre(ligne));
+    }
+
+    public void placerPionNoirVisuel(int ligne, int colonne) {
+        double rayon = TAILLE_CASE / 2.5;
+        pionNoirVisuel = new Circle(calculerCentre(colonne), calculerCentre(ligne), rayon, Color.BLACK);
+        pionNoirVisuel.setStroke(Color.LIGHTGRAY); 
+        pionNoirVisuel.setStrokeWidth(2);
+        this.getChildren().add(pionNoirVisuel);
+    }
+
+    public void deplacerPionNoirVisuel(int ligne, int colonne) {
+        pionNoirVisuel.setCenterX(calculerCentre(colonne));
+        pionNoirVisuel.setCenterY(calculerCentre(ligne));
     }
 
     public void placerMurVisuel(int ligne, int colonne, boolean horizontal) {
