@@ -2,30 +2,30 @@ package com.quoridor;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 public class Menu extends Application {
 
+    @Override
     public void start(Stage stage) {
-        
+        // 1. Instanciation de l'architecture
         Moteur monMoteur = new Moteur();
         Plateau monPlateau = new Plateau();
-        
-
         ControleurJeu controleur = new ControleurJeu(monPlateau, monMoteur);
+
+        // 2. Création de la scène (on met le Plateau qui est un BorderPane)
+        Scene scene = new Scene(monPlateau);
         
-        //  Initialisation visuelle basée sur le modèle
-        monPlateau.initialiserPionBlancVisuel(monMoteur.getPionBlancLigne(), monMoteur.getPionBlancCol());
-
-        //  Affichage standard
-        StackPane root = new StackPane(monPlateau);
-        root.setStyle("-fx-padding: 20; -fx-background-color: #222222;");
-
-        Scene scene = new Scene(root);
-        stage.setTitle("Quoridor - Phase MVC (Refactoring)");
+        // 3. Configuration de la fenêtre
+        stage.setTitle("Quoridor - Projet PRO3600");
         stage.setResizable(false);
         stage.setScene(scene);
+        
+        stage.setOnCloseRequest(e -> {
+            System.out.println("Fermeture du jeu...");
+            System.exit(0); 
+        });
+        
         stage.show();
     }
 
