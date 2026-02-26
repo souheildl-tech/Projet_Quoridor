@@ -1,22 +1,57 @@
 package com.quoridor;
 
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Label;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import java.util.ArrayList;
+import java.util.List;
 
-public class Plateau extends Pane {
+public class Plateau extends BorderPane {
     
     public static final int TAILLE_CASE = 40;
     public static final int ESPACE_MUR = 10;
     public static final int NB_CASES = 9;
     
+    private Pane zoneJeu;
     private Circle pionBlanc;
-    private Circle pionNoirVisuel;
-
+    private Circle pionNoir; 
+    private HBox conteneurMursJoueur;
+    private HBox conteneurMursIA;
+    private List<Circle> indicateurs = new ArrayList<>();
 
     public Plateau() {
+        this.setStyle("-fx-background-color: #312e2b;");
+        initialiserInterface();
+    }
+
+    public Pane getZoneJeu() { return zoneJeu; }
+
+    private void initialiserInterface() {
+        // Panneau IA
+        HBox panneauIA = creerPanneauJoueur(" IA ", Color.BLACK);
+        conteneurMursIA = new HBox(3);
+        panneauIA.getChildren().add(conteneurMursIA);
+        this.setTop(panneauIA);
+
+        // Zone de Jeu
+        zoneJeu = new Pane();
         dessinerGrille();
+        this.setCenter(zoneJeu);
+        BorderPane.setMargin(zoneJeu, new Insets(10));
+
+        // Panneau Joueur
+        HBox panneauJoueur = creerPanneauJoueur(" Joueur 1 ", Color.WHITE);
+        conteneurMursJoueur = new HBox(3);
+        panneauJoueur.getChildren().add(conteneurMursJoueur);
+        this.setBottom(panneauJoueur);
     }
 
     private void dessinerGrille() {
@@ -34,47 +69,65 @@ public class Plateau extends Pane {
         }
     }
 
+   public void mettreAJourMurs(boolean isJoueur, int nbMurs) {
+        HBox conteneur = isJoueur ? conteneurMursJoueur : conteneurMursIA;
+        conteneur.getChildren().clear();
+        for (int i = 0; i < nbMurs; i++) {
+            Rectangle murUI = new Rectangle(6, 18);
+            murUI.setFill(Color.CHOCOLATE);
+            murUI.setStroke(Color.web("#5c3a21"));
+            murUI.setArcWidth(3); murUI.setArcHeight(3);
+            conteneur.getChildren().add(murUI);
+        }
+    }
+
     public void placerPionVisuel(int ligne, int colonne, Color couleur) {
-        double rayon = TAILLE_CASE / 2.5;
-        Circle pion = new Circle(calculerCentre(colonne), calculerCentre(ligne), rayon, couleur);
-        pion.setStroke(Color.BLACK);
+        Circle pion = new Circle(calculerX(colonne), calculerY(ligne), TAILLE_CASE / 2.5);
+        pion.setFill(couleur);
+        pion.setStroke(couleur == Color.BLACK ? Color.GRAY : Color.BLACK);
+        
         if (couleur == Color.WHITE) this.pionBlanc = pion;
-        this.getChildren().add(pion);
+        else this.pionNoir = pion;
+        zoneJeu.getChildren().add(pion);
     }
 
-    public void deplacerPionBlancVisuel(int ligne, int colonne) {
-        pionBlanc.setCenterX(calculerCentre(colonne));
-        pionBlanc.setCenterY(calculerCentre(ligne));
-    }
-
-    public void placerPionNoirVisuel(int ligne, int colonne) {
-        double rayon = TAILLE_CASE / 2.5;
-        pionNoirVisuel = new Circle(calculerCentre(colonne), calculerCentre(ligne), rayon, Color.BLACK);
-        pionNoirVisuel.setStroke(Color.LIGHTGRAY); 
-        pionNoirVisuel.setStrokeWidth(2);
-        this.getChildren().add(pionNoirVisuel);
-    }
-
-    public void deplacerPionNoirVisuel(int ligne, int colonne) {
-        pionNoirVisuel.setCenterX(calculerCentre(colonne));
-        pionNoirVisuel.setCenterY(calculerCentre(ligne));
+    public void deplacerPionVisuel(boolean isBlanc, int ligne, int colonne) {
+        Circle pion = isBlanc ? pionBlanc : pionNoir;
+        pion.setCenterX(calculerX(colonne));
+        pion.setCenterY(calculerY(ligne));
     }
 
     public void placerMurVisuel(int ligne, int colonne, boolean horizontal) {
         double x, y, largeurMur, hauteurMur;
         if (horizontal) {
             largeurMur = (TAILLE_CASE * 2) + ESPACE_MUR; hauteurMur = ESPACE_MUR;
-            x = calculerCoord(colonne); y = calculerCoord(ligne + 1) - ESPACE_MUR;
+            x = (colonne * (TAILLE_CASE + ESPACE_MUR));
+            y = ((ligne + 1) * (TAILLE_CASE + ESPACE_MUR)) - ESPACE_MUR;
         } else {
             largeurMur = ESPACE_MUR; hauteurMur = (TAILLE_CASE * 2) + ESPACE_MUR;
-            x = calculerCoord(colonne + 1) - ESPACE_MUR; y = calculerCoord(ligne);
+            x = ((colonne + 1) * (TAILLE_CASE + ESPACE_MUR)) - ESPACE_MUR;
+            y = (ligne * (TAILLE_CASE + ESPACE_MUR));
         }
         Rectangle mur = new Rectangle(x, y, largeurMur, hauteurMur);
         mur.setFill(Color.CHOCOLATE);
         mur.setStroke(Color.BLACK);
-        this.getChildren().add(mur);
+        zoneJeu.getChildren().add(mur);
     }
 
-    private double calculerCoord(int index) { return index * (TAILLE_CASE + ESPACE_MUR); }
-    private double calculerCentre(int index) { return calculerCoord(index) + (TAILLE_CASE / 2.0); }
+    public void afficherIndicateur(int ligne, int colonne) {
+        Circle point = new Circle(calculerX(colonne), calculerY(ligne), 8);
+        point.setFill(Color.LIGHTGREEN);
+        point.setOpacity(0.6);
+        point.setMouseTransparent(true);
+        zoneJeu.getChildren().add(point);
+        indicateurs.add(point);
+    }
+
+    public void cacherIndicateurs() {
+        zoneJeu.getChildren().removeAll(indicateurs);
+        indicateurs.clear();
+    }
+
+    private double calculerX(int colonne) { return (colonne * (TAILLE_CASE + ESPACE_MUR)) + (TAILLE_CASE / 2.0); }
+    private double calculerY(int ligne) { return (ligne * (TAILLE_CASE + ESPACE_MUR)) + (TAILLE_CASE / 2.0); }
 }
