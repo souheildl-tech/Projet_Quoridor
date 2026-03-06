@@ -69,16 +69,23 @@ public class ControleurJeu {
                         commandeAEnvoyer = "MOVE:" + ligClic + "," + colClic;
                     }
                 }
-                else if (event.getButton() == MouseButton.SECONDARY || event.getButton() == MouseButton.MIDDLE) { 
-                    boolean h = (event.getButton() == MouseButton.SECONDARY);
-                    if (modele.getMursJoueur() > 0 && ligClic < 8 && colClic < 8 && modele.emplacementMurLibre(ligClic, colClic)) {
-                        modele.utiliserMurJoueur(ligClic, colClic, h);
-                        vue.placerMurVisuel(ligClic, colClic, h);
-                        vue.mettreAJourMurs(true, modele.getMursJoueur());
-                        commandeAEnvoyer = "MUR:" + ligClic + "," + colClic + "," + (h ? "H" : "V");
-                    }
-                }
-            }
+                
+           else if (event.getButton() == MouseButton.SECONDARY || event.getButton() == MouseButton.MIDDLE) { 
+               boolean h = (event.getButton() == MouseButton.SECONDARY);
+               if (modele.getMursJoueur() > 0 && ligClic < 8 && colClic < 8) {
+                   if (modele.murEstValide(ligClic, colClic, h)) {
+                       // Le BFS l'autorise : on pose le mur
+                       modele.utiliserMurJoueur(ligClic, colClic, h);
+                       vue.placerMurVisuel(ligClic, colClic, h);
+                       vue.mettreAJourMurs(true, modele.getMursJoueur());
+                       commandeAEnvoyer = "MUR:" + ligClic + "," + colClic + "," + (h ? "H" : "V");
+                   } else {
+                       // Le BFS l'interdit : Mouvement interdit
+                       System.out.println(" Mur invalide : croisement ou joueur enfermé !");
+                   }
+               }
+           }
+
 
             if (commandeAEnvoyer != null) {
                 if (modele.verifierVictoireBlanc()) {
