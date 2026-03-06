@@ -1,20 +1,19 @@
 package com.quoridor;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 public class Moteur {
     private int pionBlancLigne = 8;
     private int pionBlancCol = 4;
     private int pionNoirLigne = 0;
     private int pionNoirCol = 4;
-    
     private int mursJoueur = 10;
     private int mursIA = 10;
-    
     private boolean tourIA = false;
     private boolean partieTerminee = false;
-    
     private List<MurLogique> mursPlaques = new ArrayList<>();
     
     public class MurLogique {
@@ -35,6 +34,62 @@ public class Moteur {
         }
         return true;
     }
+
+    private boolean aUnChemin(int startLigne, int startCol, int targetLigne) {
+        boolean[][] visite = new boolean[9][9];
+        Queue<int[]> file = new LinkedList<>();
+        
+        file.add(new int[]{startLigne, startCol});
+        visite[startLigne][startCol] = true;
+
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+
+        while (!file.isEmpty()) {
+            int[] actuel = file.poll();
+            int l = actuel[0];
+            int c = actuel[1];
+
+            if (l == targetLigne) return true;
+
+            for (int[] dir : directions) {
+                int nextL = l + dir[0];
+                int nextC = c + dir[1];
+
+                if (nextL >= 0 && nextL < 9 && nextC >= 0 && nextC < 9) {
+                    if (!visite[nextL][nextC] && estDeplacementValide(l, c, nextL, nextC)) {
+                        visite[nextL][nextC] = true;
+                        file.add(new int[]{nextL, nextC});
+                    }
+                }
+            }
+        }
+        return false; 
+    }
+
+   
+    public boolean murEstValide(int l, int c, boolean h) {
+        // Vérifier les collisions physiques (superposition et croisement)
+        for (MurLogique m : mursPlaques) {
+            if (m.ligne == l && m.col == c) return false;
+            // Un mur horizontal ne peut pas couper un mur vertical
+            if (m.ligne == l && m.col == c && m.horizontal != h) return false; 
+        }
+
+    
+        MurLogique murTest = new MurLogique(l, c, h);
+        mursPlaques.add(murTest);
+
+        // Lancement du BFS pour les deux joueurs
+        boolean blancPeutFinir = aUnChemin(pionBlancLigne, pionBlancCol, 0); 
+        boolean noirPeutFinir = aUnChemin(pionNoirLigne, pionNoirCol, 8);    
+
+        mursPlaques.remove(murTest);
+
+        // Le mur n'est valide que si AUCUN joueur n'est enfermé
+        return blancPeutFinir && noirPeutFinir;
+    }
+
+}
 
     public boolean emplacementMurLibre(int l, int c) {
         for (MurLogique m : mursPlaques) {
