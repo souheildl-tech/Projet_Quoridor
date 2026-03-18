@@ -1,51 +1,72 @@
-import random
-from moteur import get_voisins_valides, get_shortest_path_length, mur_est_valide
+from moteur import get_legal_moves, get_shortest_path_length
 
-def choisir_meilleur_coup_pion(state):
-    mouvements_possibles = get_voisins_valides(state, state.ia_pos)
+def simuler_coup(state, coup, is_ia):
+    undo_pos = state.ia_pos if is_ia else state.joueur_pos
+    if coup[0] == "MOVE":
+        if is_ia: state.ia_pos = (coup[1], coup[2])
+        else: state.joueur_pos = (coup[1], coup[2])
+    elif coup[0] == "WALL":
+        if is_ia: state.ia_walls -= 1
+        else: state.joueur_walls -= 1
+        if coup[1] == "H": state.horizontal_walls.add((coup[2], coup[3]))
+        else: state.vertical_walls.add((coup[2], coup[3]))
+    return undo_pos
+
+def annuler_coup(state, coup, undo_pos, is_ia):
+    if coup[0] == "MOVE":
+        if is_ia: state.ia_pos = undo_pos
+        else: state.joueur_pos = undo_pos
+    elif coup[0] == "WALL":
+        if is_ia: state.ia_walls += 1
+        else: state.joueur_walls += 1
+        if coup[1] == "H": state.horizontal_walls.remove((coup[2], coup[3]))
+        else: state.vertical_walls.remove((coup[2], coup[3]))
+
+def evaluate_state(state):
+    ia_dist = get_shortest_path_length(state, state.ia_pos, 8)
+    joueur_dist = get_shortest_path_length(state, state.joueur_pos, 0)
+    
+    if ia_dist == 0: return 1000
+    if joueur_dist == 0: return -1000
+    
+    score = joueur_dist - ia_dist
+    score += (state.ia_walls - state.joueur_walls) * 0.5
+    return score
+
+def minimax(state, depth, alpha, beta, is_maximizing_player):
+    if depth == 0 or state.ia_pos[0] == 8 or state.joueur_pos[0] == 0:
+        return evaluate_state(state), None
+
     meilleur_coup = None
-    meilleure_distance = float('inf') 
-    
-    for coup in mouvements_possibles:
-        pos_initiale = state.ia_pos
-        state.ia_pos = coup
-        
-        distance = get_shortest_path_length(state, state.ia_pos, 8)
-        state.ia_pos = pos_initiale
-        
-        if distance < meilleure_distance:
-            meilleure_distance = distance
-            meilleur_coup = ("MOVE", coup[0], coup[1])
+
+    if is_maximizing_player:
+        max_eval = float('-inf')
+        for coup in get_legal_moves(state, is_ia=True):
+            undo_info = simuler_coup(state, coup, is_ia=True)
+            eval_score, _ = minimax(state, depth - 1, alpha, beta, False)
+            annuler_coup(state, coup, undo_info, is_ia=True)
             
-    return meilleur_coup
+            if eval_score > max_eval:
+                max_eval = eval_score
+                meilleur_coup = coup
+            
+            alpha = max(alpha, eval_score)
+            if beta <= alpha:
+                break
+        return max_eval, meilleur_coup
 
-def generer_coup_mur_aleatoire(state):
-    tentatives = 0
-    while tentatives < 50:
-        l, c = random.randint(0, 7), random.randint(0, 7)
-        orientation = random.choice(["H", "V"])
-        if mur_est_valide(state, l, c, orientation):
-            return ("WALL", orientation, l, c)
-        tentatives += 1
-    return None
-
-def calculer_meilleur_coup(state):
-    """Fonction principale appelée par le serveur pour obtenir l'action de l'IA."""
-    coup_choisi = None
-    
-    dist_joueur = get_shortest_path_length(state, state.joueur_pos, 0)
-    chance_mur = 0.4 if dist_joueur < 4 else 0.1 
-
-    if state.ia_walls > 0 and random.random() < chance_mur:
-        coup_choisi = generer_coup_mur_aleatoire(state)
-    
-    if coup_choisi is None:
-        coup_choisi = choisir_meilleur_coup_pion(state)
-        
-    # cas où l'IA serait bloquée
-    if coup_choisi is None:
-        voisins = get_voisins_valides(state, state.ia_pos)
-        if voisins:
-            coup_choisi = ("MOVE", voisins[0][0], voisins[0][1])
-
-    return coup_choisi
+    else:
+        min_eval = float('inf')
+        for coup in get_legal_moves(state, is_ia=False):
+            undo_info = simuler_coup(state, coup, is_ia=False)
+            eval_score, _ = minimax(state, depth - 1, alpha, beta, True)
+            annuler_coup(state, coup, undo_info, is_ia=False)
+            
+            if eval_score < min_eval:
+                min_eval = eval_score
+                meilleur_coup = coup
+                
+            beta = min(beta, eval_score)
+            if beta <= alpha:
+                break
+        return min_eval, meilleur_coup
