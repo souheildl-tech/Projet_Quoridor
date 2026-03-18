@@ -1,13 +1,13 @@
 import socket
-import time
 from moteur import QuoridorState
-from minimax import calculer_meilleur_coup
+from minimax import minimax
 
 HOST = '127.0.0.1'
 PORT = 65432
+PROFONDEUR_MINIMAX = 2
 
 def start_server():
-    print(f"--- CERVEAU PYTHON DÉMARRÉ sur {HOST}:{PORT} ---")
+    print(f"--- CERVEAU MINIMAX DÉMARRÉ ({HOST}:{PORT}) ---")
     jeu = QuoridorState()
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -15,50 +15,43 @@ def start_server():
         s.bind((HOST, PORT))  
         s.listen()  
          
-        print("En attente du client Java...")
         conn, addr = s.accept()  
-        
         with conn:
-            print(f"Connecté au jeu ! ({addr})")
+            print(f"Joueur connecté ! ({addr})")
             
             while True:
                 data = conn.recv(1024)  
-                if not data:            
-                    break
+                if not data: break
                 
                 msg_recu = data.decode('utf-8').strip()
-                print(f"Message Java reçu : {msg_recu}")
                 
-                try:
-                    if msg_recu.startswith("MOVE:"):
-                        coords = msg_recu.split(":")[1].split(",")
-                        jeu.joueur_pos = (int(coords[0]), int(coords[1]))
-                    elif msg_recu.startswith("MUR:"):
-                        infos = msg_recu.split(":")[1].split(",")
-                        l_mur, c_mur, orientation = int(infos[0]), int(infos[1]), infos[2]
-                        if orientation == "H":
-                            jeu.horizontal_walls.add((l_mur, c_mur))
-                        elif orientation == "V":
-                            jeu.vertical_walls.add((l_mur, c_mur))
-                        jeu.joueur_walls -= 1
-                except Exception as e:
-                    print(f"Erreur de parsing : {e}")
+                # Mise à jour
+                if msg_recu.startswith("MOVE:"):
+                    coords = msg_recu.split(":")[1].split(",")
+                    jeu.joueur_pos = (int(coords[0]), int(coords[1]))
+                elif msg_recu.startswith("MUR:"):
+                    infos = msg_recu.split(":")[1].split(",")
+                    l_mur, c_mur, orientation = int(infos[0]), int(infos[1]), infos[2]
+                    if orientation == "H": jeu.horizontal_walls.add((l_mur, c_mur))
+                    else: jeu.vertical_walls.add((l_mur, c_mur))
+                    jeu.joueur_walls -= 1
                 
                 if jeu.joueur_pos[0] == 0:
                     print(" LE JOUEUR A GAGNÉ !")
                     break 
                 
-                time.sleep(0.3) 
+                print("L'IA réfléchit...")
+                # L'appel au cerveau
+                score, coup_choisi = minimax(jeu, PROFONDEUR_MINIMAX, float('-inf'), float('inf'), True)
                 
-                # Utilisation du minimax
-                coup_choisi = calculer_meilleur_coup(jeu)
+                if coup_choisi is None:
+                    coup_choisi = ("MOVE", jeu.ia_pos[0] + 1, jeu.ia_pos[1])
 
-                
+                # Jouer et répondre
                 reponse = ""
                 if coup_choisi[0] == "MOVE":
                     jeu.ia_pos = (coup_choisi[1], coup_choisi[2])
                     reponse = f"MOVE:{jeu.ia_pos[0]},{jeu.ia_pos[1]}\n"
-                    
                 elif coup_choisi[0] == "WALL":
                     orientation, l_mur, c_mur = coup_choisi[1], coup_choisi[2], coup_choisi[3]
                     if orientation == "H": jeu.horizontal_walls.add((l_mur, c_mur))
@@ -66,9 +59,8 @@ def start_server():
                     jeu.ia_walls -= 1
                     reponse = f"MUR:{l_mur},{c_mur},{orientation}\n"
                 
-                if reponse:
-                    print(f"L'IA joue : {reponse.strip()}")
-                    conn.sendall(reponse.encode('utf-8'))
+                print(f"L'IA joue : {reponse.strip()}")
+                conn.sendall(reponse.encode('utf-8'))
 
                 if jeu.ia_pos[0] == 8:
                     print(" L'IA A GAGNÉ !")
