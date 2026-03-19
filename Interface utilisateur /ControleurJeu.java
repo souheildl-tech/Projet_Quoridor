@@ -51,42 +51,73 @@ public class ControleurJeu {
     }
 
     private void attacherEcouteurs() {
-        // On écoute UNIQUEMENT la zone de jeu de la vue
         vue.getZoneJeu().setOnMouseClicked(event -> {
             if (modele.isPartieTerminee() || modele.isTourIA()) return; 
             
             vue.cacherIndicateurs();
-            int colClic = (int) (event.getX() / (Plateau.TAILLE_CASE + Plateau.ESPACE_MUR));
-            int ligClic = (int) (event.getY() / (Plateau.TAILLE_CASE + Plateau.ESPACE_MUR));
-            String commandeAEnvoyer = null; 
 
+            // 1. Récupération des coordonnées exactes en pixels
+            double x = event.getX();
+            double y = event.getY();
+            int tailleBloc = Plateau.TAILLE_CASE + Plateau.ESPACE_MUR;
+            
+            // 2. Calcul de la case logique (0 à 8)
+            int colClic = (int) (x / tailleBloc);
+            int ligClic = (int) (y / tailleBloc);
+            
+            // 3. Calcul du reste (Modulo) pour la Hitbox interne
+            double resteX = x % tailleBloc;
+            double resteY = y % tailleBloc;
+            
+            String commandeAEnvoyer = null; 
+            
             if (colClic >= 0 && colClic < Plateau.NB_CASES && ligClic >= 0 && ligClic < Plateau.NB_CASES) {
                 
-                if (event.getButton() == MouseButton.PRIMARY) { 
-                    if (modele.estDeplacementValide(modele.getPionBlancLigne(), modele.getPionBlancCol(), ligClic, colClic)) {
-                        modele.majPositionBlanc(ligClic, colClic);
-                        vue.deplacerPionVisuel(true, ligClic, colClic);
-                        commandeAEnvoyer = "MOVE:" + ligClic + "," + colClic;
+                if (event.getButton() == MouseButton.PRIMARY) {
+                    
+                    // DÉPLACEMENT
+                    if (resteX < Plateau.TAILLE_CASE && resteY < Plateau.TAILLE_CASE) {
+                        if (modele.estDeplacementValide(modele.getPionBlancLigne(), modele.getPionBlancCol(), ligClic, colClic)) {
+                            modele.majPositionBlanc(ligClic, colClic);
+                            vue.deplacerPionVisuel(true, ligClic, colClic);
+                            commandeAEnvoyer = "MOVE:" + ligClic + "," + colClic;
+                        } else {
+                            System.out.println(" Déplacement invalide !");
+                        }
                     }
+                    
+                    // MUR VERTICAL
+                    else if (resteX >= Plateau.TAILLE_CASE && resteY < Plateau.TAILLE_CASE) {
+                        if (colClic < Plateau.NB_CASES - 1 && ligClic < Plateau.NB_CASES - 1) {
+                            if (modele.getMursJoueur() > 0 && modele.murEstValide(ligClic, colClic, false)) {
+                                modele.utiliserMurJoueur(ligClic, colClic, false);
+                                vue.placerMurVisuel(ligClic, colClic, false);
+                                vue.mettreAJourMurs(true, modele.getMursJoueur());
+                                commandeAEnvoyer = "MUR:" + ligClic + "," + colClic + ",V";
+                            } else {
+                                System.out.println("❌ Mur Vertical invalide ou enferme un joueur !");
+                            }
+                        }
+                    }
+                    
+                    // MUR HORIZONTAL
+                    else if (resteX < Plateau.TAILLE_CASE && resteY >= Plateau.TAILLE_CASE) {
+                        if (colClic < Plateau.NB_CASES - 1 && ligClic < Plateau.NB_CASES - 1) {
+                            if (modele.getMursJoueur() > 0 && modele.murEstValide(ligClic, colClic, true)) {
+                                modele.utiliserMurJoueur(ligClic, colClic, true);
+                                vue.placerMurVisuel(ligClic, colClic, true);
+                                vue.mettreAJourMurs(true, modele.getMursJoueur());
+                                commandeAEnvoyer = "MUR:" + ligClic + "," + colClic + ",H";
+                            } else {
+                                System.out.println(" Mur Horizontal invalide ou enferme un joueur !");
+                            }
+                        }
+                    }
+                    // Le clic sur l'intersection des 4 cases (resteX >= 40 ET resteY >= 40) est volontairement ignoré.
                 }
-                
-           else if (event.getButton() == MouseButton.SECONDARY || event.getButton() == MouseButton.MIDDLE) { 
-               boolean h = (event.getButton() == MouseButton.SECONDARY);
-               if (modele.getMursJoueur() > 0 && ligClic < 8 && colClic < 8) {
-                   if (modele.murEstValide(ligClic, colClic, h)) {
-                       // Le BFS l'autorise : on pose le mur
-                       modele.utiliserMurJoueur(ligClic, colClic, h);
-                       vue.placerMurVisuel(ligClic, colClic, h);
-                       vue.mettreAJourMurs(true, modele.getMursJoueur());
-                       commandeAEnvoyer = "MUR:" + ligClic + "," + colClic + "," + (h ? "H" : "V");
-                   } else {
-                       // Le BFS l'interdit : Mouvement interdit
-                       System.out.println(" Mur invalide : croisement ou joueur enfermé !");
-                   }
-               }
-           }
+            }
 
-
+            // 4. Envoi de l'action ou remise des indicateurs visuels
             if (commandeAEnvoyer != null) {
                 if (modele.verifierVictoireBlanc()) {
                     System.out.println(" VICTOIRE !");
@@ -94,11 +125,10 @@ public class ControleurJeu {
                     envoyerAction(commandeAEnvoyer);
                 }
             } else {
-                calculerEtAfficherIndicateurs(); // Clic invalide, on remet les indicateurs
+                calculerEtAfficherIndicateurs(); 
             }
         });
     }
-
     private void envoyerAction(String messageComplet) {
         modele.setTourIA(true);
         new Thread(() -> {
