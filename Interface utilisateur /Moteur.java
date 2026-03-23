@@ -23,9 +23,60 @@ public class Moteur {
             this.ligne = l; this.col = c; this.horizontal = h; 
         }
     }
-    
+
     public boolean estDeplacementValide(int l1, int c1, int l2, int c2) {
-        if (Math.abs(l1 - l2) + Math.abs(c1 - c2) != 1) return false;
+        
+        //  1. MOUVEMENT CLASSIQUE (1 case)
+        if (Math.abs(l1 - l2) + Math.abs(c1 - c2) == 1) {
+            if (l2 == pionNoirLigne && c2 == pionNoirCol) return false; // Interdit d'aller sur l'adversaire
+            return cheminLibreDeMurs(l1, c1, l2, c2);
+        }
+
+        // 2. SAUT TOUT DROIT (Distance de 2, même axe)
+        if (Math.abs(l1 - l2) == 2 && c1 == c2) {
+            int midL = (l1 + l2) / 2;
+            if (midL == pionNoirLigne && c1 == pionNoirCol) {
+                // Vérifier qu'il n'y a ni mur avant lui, ni mur après lui
+                return cheminLibreDeMurs(l1, c1, midL, c1) && cheminLibreDeMurs(midL, c1, l2, c2);
+            }
+        }
+        if (Math.abs(c1 - c2) == 2 && l1 == l2) {
+            int midC = (c1 + c2) / 2;
+            if (l1 == pionNoirLigne && midC == pionNoirCol) {
+                return cheminLibreDeMurs(l1, c1, l1, midC) && cheminLibreDeMurs(l1, midC, l2, c2);
+            }
+        }
+
+        // 3. SAUT EN DIAGONALE (Si le saut droit est bloqué par un mur/bord)
+        if (Math.abs(l1 - l2) == 1 && Math.abs(c1 - c2) == 1) {
+            
+            // Option A : Contournement sur l'axe vertical
+            if (pionNoirLigne == l2 && pionNoirCol == c1) {
+                if (cheminLibreDeMurs(l1, c1, l2, c1)) {
+                    int caseDerriere = l2 + (l2 - l1);
+                    boolean bloqueDerriere = (caseDerriere < 0 || caseDerriere >= 9 || !cheminLibreDeMurs(l2, c1, caseDerriere, c1));
+                    if (bloqueDerriere) {
+                        return cheminLibreDeMurs(l2, c1, l2, c2);
+                    }
+                }
+            }
+            
+            // Option B : Contournement sur l'axe horizontal
+            if (pionNoirLigne == l1 && pionNoirCol == c2) {
+                if (cheminLibreDeMurs(l1, c1, l1, c2)) {
+                    int caseDerriere = c2 + (c2 - c1);
+                    boolean bloqueDerriere = (caseDerriere < 0 || caseDerriere >= 9 || !cheminLibreDeMurs(l1, c2, l1, caseDerriere));
+                    if (bloqueDerriere) {
+                        return cheminLibreDeMurs(l1, c2, l2, c2);
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private boolean cheminLibreDeMurs(int l1, int c1, int l2, int c2) {
         for (MurLogique mur : mursPlaques) {
             if (l2 < l1 && mur.horizontal && mur.ligne == l2 && (mur.col == c1 || mur.col == c1 - 1)) return false;
             if (l2 > l1 && mur.horizontal && mur.ligne == l1 && (mur.col == c1 || mur.col == c1 - 1)) return false;
@@ -34,7 +85,6 @@ public class Moteur {
         }
         return true;
     }
-
     private boolean aUnChemin(int startLigne, int startCol, int targetLigne) {
         boolean[][] visite = new boolean[9][9];
         Queue<int[]> file = new LinkedList<>();
