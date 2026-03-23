@@ -177,13 +177,21 @@ public class ControleurJeu {
     }
 
     private void calculerEtAfficherIndicateurs() {
-        int[][] dirs = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-        for (int[] dir : dirs) {
-            int l = modele.getPionBlancLigne() + dir[0];
-            int c = modele.getPionBlancCol() + dir[1];
-            if (l >= 0 && l < Plateau.NB_CASES && c >= 0 && c < Plateau.NB_CASES) {
-                if (modele.estDeplacementValide(modele.getPionBlancLigne(), modele.getPionBlancCol(), l, c)) {
-                    vue.afficherIndicateur(l, c);
+        vue.cacherIndicateurs();
+        
+        int centreL = modele.getPionBlancLigne();
+        int centreC = modele.getPionBlancCol();
+
+        for (int l = centreL - 2; l <= centreL + 2; l++) {
+            for (int c = centreC - 2; c <= centreC + 2; c++) {
+                
+                // Si la case est bien sur le plateau
+                if (l >= 0 && l < Plateau.NB_CASES && c >= 0 && c < Plateau.NB_CASES) {
+                    
+                    // On demande au modèle si le mouvement (classique ou saut) est légal
+                    if (modele.estDeplacementValide(centreL, centreC, l, c)) {
+                        vue.afficherIndicateur(l, c);
+                    }
                 }
             }
         }
