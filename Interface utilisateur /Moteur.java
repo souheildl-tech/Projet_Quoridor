@@ -1,169 +1,185 @@
 package com.quoridor;
 
+// Importe les outils pour gérer les listes et les files d'attente
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+// Gère la logique et les règles strictes du jeu
 public class Moteur {
-    private int pionBlancLigne = 8;
-    private int pionBlancCol = 4;
-    private int pionNoirLigne = 0;
-    private int pionNoirCol = 4;
-    private int mursJoueur = 10;
-    private int mursIA = 10;
-    private boolean tourIA = false;
-    private boolean partieTerminee = false;
-    private List<MurLogique> mursPlaques = new ArrayList<>();
     
+    // Taille de la grille
+    public final int NB_CASES = 9;
+    
+    // Position de départ et stock de murs du joueur blanc (humain)
+    public int pionBlancLigne = 8;
+    public int pionBlancCol = 4;
+    public int mursJoueur = 10;
+    
+    // Position de départ et stock de murs du joueur noir (IA)
+    public int pionNoirLigne = 0; 
+    public int pionNoirCol = 4;   
+    public int mursIA = 10; 
+
+    // État de la partie
+    public boolean partieTerminee = false;
+    // Garde en mémoire tous les murs déjà posés
+    public List<MurLogique> mursPlaques = new ArrayList<>();
+
+    // Représente un mur virtuel sur le plateau
     public class MurLogique {
-        public int ligne, col;
+        public int ligne;
+        public int col;
         public boolean horizontal;
-        public MurLogique(int l, int c, boolean h) { 
-            this.ligne = l; this.col = c; this.horizontal = h; 
-        }
-    }
-
-    public boolean estDeplacementValide(int l1, int c1, int l2, int c2) {
         
-        //  1. MOUVEMENT CLASSIQUE (1 case)
-        if (Math.abs(l1 - l2) + Math.abs(c1 - c2) == 1) {
-            if (l2 == pionNoirLigne && c2 == pionNoirCol) return false; // Interdit d'aller sur l'adversaire
-            return cheminLibreDeMurs(l1, c1, l2, c2);
-        }
-
-        // 2. SAUT TOUT DROIT (Distance de 2, même axe)
-        if (Math.abs(l1 - l2) == 2 && c1 == c2) {
-            int midL = (l1 + l2) / 2;
-            if (midL == pionNoirLigne && c1 == pionNoirCol) {
-                // Vérifier qu'il n'y a ni mur avant lui, ni mur après lui
-                return cheminLibreDeMurs(l1, c1, midL, c1) && cheminLibreDeMurs(midL, c1, l2, c2);
-            }
-        }
-        if (Math.abs(c1 - c2) == 2 && l1 == l2) {
-            int midC = (c1 + c2) / 2;
-            if (l1 == pionNoirLigne && midC == pionNoirCol) {
-                return cheminLibreDeMurs(l1, c1, l1, midC) && cheminLibreDeMurs(l1, midC, l2, c2);
-            }
-        }
-
-        // 3. SAUT EN DIAGONALE (Si le saut droit est bloqué par un mur/bord)
-        if (Math.abs(l1 - l2) == 1 && Math.abs(c1 - c2) == 1) {
-            
-            // Option A : Contournement sur l'axe vertical
-            if (pionNoirLigne == l2 && pionNoirCol == c1) {
-                if (cheminLibreDeMurs(l1, c1, l2, c1)) {
-                    int caseDerriere = l2 + (l2 - l1);
-                    boolean bloqueDerriere = (caseDerriere < 0 || caseDerriere >= 9 || !cheminLibreDeMurs(l2, c1, caseDerriere, c1));
-                    if (bloqueDerriere) {
-                        return cheminLibreDeMurs(l2, c1, l2, c2);
-                    }
-                }
-            }
-            
-            // Option B : Contournement sur l'axe horizontal
-            if (pionNoirLigne == l1 && pionNoirCol == c2) {
-                if (cheminLibreDeMurs(l1, c1, l1, c2)) {
-                    int caseDerriere = c2 + (c2 - c1);
-                    boolean bloqueDerriere = (caseDerriere < 0 || caseDerriere >= 9 || !cheminLibreDeMurs(l1, c2, l1, caseDerriere));
-                    if (bloqueDerriere) {
-                        return cheminLibreDeMurs(l1, c2, l2, c2);
-                    }
-                }
-            }
-        }
-
-        return false;
+        // Crée un mur avec ses coordonnées et son sens
+        public MurLogique(int l, int c, boolean h) { this.ligne = l; this.col = c; this.horizontal = h; }
     }
 
-    private boolean cheminLibreDeMurs(int l1, int c1, int l2, int c2) {
+    // Vérifie si le passage entre deux cases est libre de tout mur
+    public boolean cheminLibreDeMurs(int ligne1, int col1, int ligne2, int col2) {
+        // Teste chaque mur posé pour voir s'il coupe la trajectoire
         for (MurLogique mur : mursPlaques) {
-            if (l2 < l1 && mur.horizontal && mur.ligne == l2 && (mur.col == c1 || mur.col == c1 - 1)) return false;
-            if (l2 > l1 && mur.horizontal && mur.ligne == l1 && (mur.col == c1 || mur.col == c1 - 1)) return false;
-            if (c2 > c1 && !mur.horizontal && mur.col == c1 && (mur.ligne == l1 || mur.ligne == l1 - 1)) return false;
-            if (c2 < c1 && !mur.horizontal && mur.col == c2 && (mur.ligne == l1 || mur.ligne == l1 - 1)) return false;
+            // Blocage vers le haut
+            if (ligne2 < ligne1 && mur.horizontal && mur.ligne == ligne2 && (mur.col == col1 || mur.col == col1 - 1)) return false;
+            // Blocage vers le bas
+            if (ligne2 > ligne1 && mur.horizontal && mur.ligne == ligne1 && (mur.col == col1 || mur.col == col1 - 1)) return false;
+            // Blocage vers la droite
+            if (col2 > col1 && !mur.horizontal && mur.col == col1 && (mur.ligne == ligne1 || mur.ligne == ligne1 - 1)) return false;
+            // Blocage vers la gauche
+            if (col2 < col1 && !mur.horizontal && mur.col == col2 && (mur.ligne == ligne1 || mur.ligne == ligne1 - 1)) return false;
         }
         return true;
     }
-    private boolean aUnChemin(int startLigne, int startCol, int targetLigne) {
-        boolean[][] visite = new boolean[9][9];
-        Queue<int[]> file = new LinkedList<>();
-        
-        file.add(new int[]{startLigne, startCol});
-        visite[startLigne][startCol] = true;
 
+    
+    // Algorithme BFS vérifiant si un joueur n'est pas totalement bloqué
+    public boolean aUnChemin(int ligneDepart, int colDepart, int ligneCible) {
+        // Grille pour retenir les cases déjà visitées par l'algorithme
+        boolean[][] visite = new boolean[NB_CASES][NB_CASES];
+        // File d'attente pour explorer les cases progressivement
+        Queue<int[]> fileAttente = new LinkedList<>();
+        
+        fileAttente.add(new int[]{ligneDepart, colDepart});
+        visite[ligneDepart][colDepart] = true;
+        
+        // Directions de base (haut, bas, gauche, droite)
         int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
-        while (!file.isEmpty()) {
-            int[] actuel = file.poll();
-            int l = actuel[0];
-            int c = actuel[1];
+        // Cherche tant qu'il y a des cases accessibles
+        while (!fileAttente.isEmpty()) {
+            int[] caseActuelle = fileAttente.poll();
+            int ligne = caseActuelle[0];
+            int col = caseActuelle[1];
 
-            if (l == targetLigne) return true;
+            // Stoppe la recherche si la ligne d'arrivée est trouvée
+            if (ligne == ligneCible) return true;
 
-            for (int[] dir : directions) {
-                int nextL = l + dir[0];
-                int nextC = c + dir[1];
+            // Regarde les cases voisines accessibles
+            for (int[] direction : directions) {
+                int prochaineLigne = ligne + direction[0];
+                int prochaineCol = col + direction[1];
 
-                if (nextL >= 0 && nextL < 9 && nextC >= 0 && nextC < 9) {
-                    if (!visite[nextL][nextC] && estDeplacementValide(l, c, nextL, nextC)) {
-                        visite[nextL][nextC] = true;
-                        file.add(new int[]{nextL, nextC});
+                // Ajoute la case à la file si elle est sur le plateau, non visitée et sans mur
+                if (prochaineLigne >= 0 && prochaineLigne < NB_CASES && prochaineCol >= 0 && prochaineCol < NB_CASES) {
+                    if (!visite[prochaineLigne][prochaineCol] && cheminLibreDeMurs(ligne, col, prochaineLigne, prochaineCol)) {
+                        visite[prochaineLigne][prochaineCol] = true;
+                        fileAttente.add(new int[]{prochaineLigne, prochaineCol});
                     }
                 }
             }
         }
+        // Aucun chemin n'a été trouvé
         return false; 
     }
 
-   
-    public boolean murEstValide(int l, int c, boolean h) {
-        // Vérifier les collisions physiques (superposition et croisement)
-        for (MurLogique m : mursPlaques) {
-            if (m.ligne == l && m.col == c) return false;
-            // Un mur horizontal ne peut pas couper un mur vertical
-            if (m.ligne == l && m.col == c && m.horizontal != h) return false; 
+    // Vérifie si on a le droit de poser un mur à cet endroit
+    public boolean murEstValide(int ligne, int col, boolean estHorizontal) {
+        // Vérifie qu'il ne rentre pas en collision avec un mur existant
+        for (MurLogique mur : mursPlaques) {
+            // Superposition exacte
+            if (mur.ligne == ligne && mur.col == col) return false;
+            // Chevauchement horizontal
+            if (estHorizontal && mur.horizontal && mur.ligne == ligne && (mur.col == col - 1 || mur.col == col + 1)) return false;
+            // Chevauchement vertical
+            if (!estHorizontal && !mur.horizontal && mur.col == col && (mur.ligne == ligne - 1 || mur.ligne == ligne + 1)) return false;
         }
 
-    
-        MurLogique murTest = new MurLogique(l, c, h);
+        // Pose le mur virtuellement pour tester s'il bloque complètement un joueur
+        MurLogique murTest = new MurLogique(ligne, col, estHorizontal);
         mursPlaques.add(murTest);
 
-        // Lancement du BFS pour les deux joueurs
-        boolean blancPeutFinir = aUnChemin(pionBlancLigne, pionBlancCol, 0); 
-        boolean noirPeutFinir = aUnChemin(pionNoirLigne, pionNoirCol, 8);    
+        // L'algorithme vérifie que les deux joueurs peuvent encore finir
+        boolean blancPeutFinir = aUnChemin(pionBlancLigne, pionBlancCol, 0);
+        boolean noirPeutFinir = aUnChemin(pionNoirLigne, pionNoirCol, 8);
 
-        mursPlaques.remove(murTest);
-
-        // Le mur n'est valide que si AUCUN joueur n'est enfermé
+        // Retire le mur virtuel
+        mursPlaques.remove(mursPlaques.size() - 1);
+        
+        // Valide le mur seulement si personne n'est enfermé
         return blancPeutFinir && noirPeutFinir;
     }
 
-}
+    
+    // Vérifie toutes les règles de déplacement et de saut de pion
+    public boolean estDeplacementValide(int ligneDepart, int colDepart, int ligneArrivee, int colArrivee) {
+        // Trouve les coordonnées de l'adversaire
+        int ligneAdversaire = (ligneDepart == pionBlancLigne && colDepart == pionBlancCol) ? pionNoirLigne : pionBlancLigne;
+        int colAdversaire = (ligneDepart == pionBlancLigne && colDepart == pionBlancCol) ? pionNoirCol : pionBlancCol;
 
-    public boolean emplacementMurLibre(int l, int c) {
-        for (MurLogique m : mursPlaques) {
-            if (m.ligne == l && m.col == c) return false;
+        // Règle 1 : Déplacement classique d'une seule case
+        if (Math.abs(ligneDepart - ligneArrivee) + Math.abs(colDepart - colArrivee) == 1) {
+            // Interdit d'aller sur la case de l'adversaire
+            if (ligneArrivee == ligneAdversaire && colArrivee == colAdversaire) return false; 
+            // Valide si aucun mur ne bloque
+            return cheminLibreDeMurs(ligneDepart, colDepart, ligneArrivee, colArrivee);
         }
-        return true;
+
+        // Règle 2 : Saut en ligne droite par-dessus l'adversaire (verticalement)
+        if (Math.abs(ligneDepart - ligneArrivee) == 2 && colDepart == colArrivee) {
+            int ligneMilieu = (ligneDepart + ligneArrivee) / 2;
+            if (ligneMilieu == ligneAdversaire && colDepart == colAdversaire) { 
+                return cheminLibreDeMurs(ligneDepart, colDepart, ligneMilieu, colDepart) && cheminLibreDeMurs(ligneMilieu, colDepart, ligneArrivee, colArrivee);
+            }
+        }
+        
+        // Règle 2bis : Saut en ligne droite par-dessus l'adversaire (horizontalement)
+        if (Math.abs(colDepart - colArrivee) == 2 && ligneDepart == ligneArrivee) {
+            int colMilieu = (colDepart + colArrivee) / 2;
+            if (ligneDepart == ligneAdversaire && colMilieu == colAdversaire) {
+                return cheminLibreDeMurs(ligneDepart, colDepart, ligneDepart, colMilieu) && cheminLibreDeMurs(ligneDepart, colMilieu, ligneArrivee, colArrivee);
+            }
+        }
+
+        // Règle 3 : Saut en diagonale si un mur empêche le saut en ligne droite
+        if (Math.abs(ligneDepart - ligneArrivee) == 1 && Math.abs(colDepart - colArrivee) == 1) {
+            
+            // Si l'adversaire est sur le côté
+            if (ligneAdversaire == ligneDepart && Math.abs(colAdversaire - colDepart) == 1) {
+                int colArriere = colAdversaire + (colAdversaire - colDepart); 
+                // Vérifie si on ne peut pas sauter tout droit à cause du vide ou d'un mur
+                boolean estBloque = (colArriere < 0 || colArriere >= NB_CASES || !cheminLibreDeMurs(ligneAdversaire, colAdversaire, ligneAdversaire, colArriere));
+                
+                // Si bloqué, on autorise la diagonale
+                if (estBloque && colArrivee == colAdversaire) {
+                    return cheminLibreDeMurs(ligneDepart, colDepart, ligneAdversaire, colAdversaire) && cheminLibreDeMurs(ligneAdversaire, colAdversaire, ligneArrivee, colArrivee);
+                }
+            }
+            // Si l'adversaire est devant ou derrière
+            else if (colAdversaire == colDepart && Math.abs(ligneAdversaire - ligneDepart) == 1) {
+                int ligneArriere = ligneAdversaire + (ligneAdversaire - ligneDepart); 
+                // Vérifie si on ne peut pas sauter tout droit
+                boolean estBloque = (ligneArriere < 0 || ligneArriere >= NB_CASES || !cheminLibreDeMurs(ligneAdversaire, colAdversaire, ligneArriere, colAdversaire));
+                
+                // Si bloqué, on autorise la diagonale
+                if (estBloque && ligneArrivee == ligneAdversaire) {
+                    return cheminLibreDeMurs(ligneDepart, colDepart, ligneAdversaire, colAdversaire) && cheminLibreDeMurs(ligneAdversaire, colAdversaire, ligneArrivee, colArrivee);
+                }
+            }
+        }
+        
+        // Le mouvement ne correspond à aucune règle valide
+        return false;
     }
-
-    public boolean verifierVictoireBlanc() {
-        if (pionBlancLigne == 0) partieTerminee = true;
-        return partieTerminee;
-    }
-
-    public void majPositionBlanc(int l, int c) { pionBlancLigne = l; pionBlancCol = c; }
-    public void majPositionNoir(int l, int c) { pionNoirLigne = l; pionNoirCol = c; }
-    public void utiliserMurJoueur(int l, int c, boolean h) { mursPlaques.add(new MurLogique(l, c, h)); mursJoueur--; }
-    public void utiliserMurIA(int l, int c, boolean h) { mursPlaques.add(new MurLogique(l, c, h)); mursIA--; }
-
-    public int getPionBlancLigne() { return pionBlancLigne; }
-    public int getPionBlancCol() { return pionBlancCol; }
-    public int getMursJoueur() { return mursJoueur; }
-    public int getMursIA() { return mursIA; }
-    public boolean isTourIA() { return tourIA; }
-    public void setTourIA(boolean tourIA) { this.tourIA = tourIA; }
-    public boolean isPartieTerminee() { return partieTerminee; }
-    public void setPartieTerminee(boolean b) { this.partieTerminee = b; }
 }
