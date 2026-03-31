@@ -1,73 +1,90 @@
 package com.quoridor;
 
-import java.io.BufferedReader;
+// Outils nécessaires pour la connexion réseau et la lecture/écriture de texte
+import java.io.BufferedReader; 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-
+// Gère la communication réseau entre le jeu Java et le cerveau Python
 public class QuoridorClient {
 
-    private Socket clientSocket;
-    private PrintWriter out;
-    private BufferedReader in;
+    // Éléments gérant la connexion et l'échange de texte avec le serveur
+    private Socket socketClient;
+    private PrintWriter fluxSortant;
+    private BufferedReader fluxEntrant;
+    
+    // Garde en mémoire le processus Python pour pouvoir le fermer à la fin
+    private static Process processusServeurPython;
 
-    // 1. Se connecter au serveur Python
-    public boolean startConnection(String ip, int port) {
-        try {
-            clientSocket = new Socket(ip, port);
-            out = new PrintWriter(clientSocket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            return true; 
-        } catch (IOException e) {
-            System.err.println("Erreur de connexion ?");
-            return false;
-        }
+    // Ouvre la connexion réseau et prépare les outils d'envoi et de réception
+    public void demarrerConnexion(String adresseIp, int port) throws IOException {
+        socketClient = new Socket(adresseIp, port);
+        fluxSortant = new PrintWriter(socketClient.getOutputStream(), true);
+        fluxEntrant = new BufferedReader(new InputStreamReader(socketClient.getInputStream()));
     }
 
-    // 2. Envoyer un message et attendre la réponse
-    public String sendMessage(String msg) {
-        if (out == null || in == null) {
-            return "Erreur : Non connecté au serveur.";
-        }
-        try {
-            out.println(msg);
-            return in.readLine();
-        } catch (IOException e) {
-            return "Erreur de communication avec le serveur.";
-        }
+    // Envoie une commande au serveur et attend sa réponse en retour
+    public String envoyerMessage(String message) throws IOException {
+        fluxSortant.println(message);
+        return fluxEntrant.readLine();
     }
 
-    // 3. Fermer proprement les flux réseau
-    public void stopConnection() {
-        try {
-            if (in != null) in.close();
-            if (out != null) out.close();
-            if (clientSocket != null) clientSocket.close();
-            System.out.println("Connexion stopé.");
-        } catch (IOException e) {
-            System.err.println("Erreur lors de l'arrêt de la connexion.");
-        }
+    // Ferme proprement tous les flux et coupe la connexion réseau
+    public void arreterConnexion() throws IOException {
+        fluxEntrant.close();
+        fluxSortant.close();
+        socketClient.close();
     }
 
-
-    public static void main(String[] args) {
-        QuoridorClient client = new QuoridorClient();
+    // Programme de test indépendant pour vérifier que la communication fonctionne
+    public static void main(String[] arguments) {
         
-        System.out.println("Tentative de connexion au serveur Python...");
-        if (client.startConnection("127.0.0.1", 65432)) {
-            System.out.println("Connecté avec succès !");
+        // Tente d'allumer le serveur Python automatiquement en arrière-plan
+        try {
+            System.out.println("Démarrage du serveur Python...");
+            
+            ProcessBuilder constructeurProcessus = new ProcessBuilder("python3", "serveur.py");
+            constructeurProcessus.redirectErrorStream(true); 
+            
+            processusServeurPython = constructeurProcessus.start();
+            Thread.sleep(1000); 
+            
+        // Attrape et affiche les erreurs si Python n'arrive pas à se lancer
+        } catch (IOException | InterruptedException erreur) {
+            System.err.println("Impossible de lancer le serveur Python !");
+            erreur.printStackTrace();
+            return;
+        }
 
-           
-            String response1 = client.sendMessage("Ping");
-            System.out.println("Envoi : Ping | Reçu : " + response1);
+        QuoridorClient clientTest = new QuoridorClient();
+        
+        // Tente de se connecter au serveur et d'échanger des messages de test
+        try {
+            System.out.println("Tentative de connexion...");
+            clientTest.demarrerConnexion("127.0.0.1", 65432);
+            System.out.println("Connecté !");
 
-         
-            String response2 = client.sendMessage("Message envoyé à Python !");
-            System.out.println("Envoi : Message envoyé à Python ! | Reçu : " + response2);
+            String reponse = clientTest.envoyerMessage("Ping");
+            System.out.println("Envoi: Ping | Reçu: " + reponse);
 
-            client.stopConnection();
+            reponse = clientTest.envoyerMessage("Salut Python");
+            System.out.println("Envoi: Salut Python | Reçu: " + reponse);
+            
+            clientTest.arreterConnexion();
+            
+        // Gère les erreurs de réseau pendant les tests
+        } catch (IOException erreurReseau) {
+            erreurReseau.printStackTrace();
+            System.err.println("Erreur : Impossible de se connecter au serveur Python.");
+            
+        // Coupe systématiquement le serveur Python à la fin des tests
+        } finally {
+            if (processusServeurPython != null) {
+                System.out.println("Fermeture du serveur Python...");
+                processusServeurPython.destroy();
+            }
         }
     }
 }
