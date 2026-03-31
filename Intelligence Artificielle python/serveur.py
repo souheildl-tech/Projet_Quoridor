@@ -1,70 +1,89 @@
+# Importation des modules réseau et de la logique de jeu
 import socket
-from moteur import QuoridorState
-from minimax import minimax
+from moteur import EtatQuoridor
+from ia import minimax
 
-HOST = '127.0.0.1'
+# Configuration de la connexion réseau et de la profondeur de réflexion
+HOTE = '127.0.0.1'
 PORT = 65432
-PROFONDEUR_MINIMAX = 2
+PROFONDEUR_MINIMAX = 4
 
-def start_server():
-    print(f"--- CERVEAU MINIMAX DÉMARRÉ ({HOST}:{PORT}) ---")
-    jeu = QuoridorState()
+# Initialisation du serveur et attente de la connexion client
+def demarrer_serveur():
     
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((HOST, PORT))  
-        s.listen()  
-         
-        conn, addr = s.accept()  
-        with conn:
-            print(f"Joueur connecté ! ({addr})")
+    print(f"Demarrage de l'intelligence artificielle sur {HOTE}:{PORT}")
+    jeu = EtatQuoridor()
+    
+    # Configuration du socket pour écouter les requêtes Java
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as service_reseau:
+        service_reseau.bind((HOTE, PORT))  
+        service_reseau.listen()            
+        connexion, adresse = service_reseau.accept()  
+        
+        with connexion:
+            print(f"Interface distante liee depuis {adresse}")
             
+            # Boucle de jeu traitant les messages en continu
             while True:
-                data = conn.recv(1024)  
-                if not data: break
+                donnees = connexion.recv(1024)  
+                if not donnees: 
+                    break
                 
-                msg_recu = data.decode('utf-8').strip()
+                message_recu = donnees.decode('utf-8').strip()
                 
-                # Mise à jour
-                if msg_recu.startswith("MOVE:"):
-                    coords = msg_recu.split(":")[1].split(",")
-                    jeu.joueur_pos = (int(coords[0]), int(coords[1]))
-                elif msg_recu.startswith("MUR:"):
-                    infos = msg_recu.split(":")[1].split(",")
-                    l_mur, c_mur, orientation = int(infos[0]), int(infos[1]), infos[2]
-                    if orientation == "H": jeu.horizontal_walls.add((l_mur, c_mur))
-                    else: jeu.vertical_walls.add((l_mur, c_mur))
-                    jeu.joueur_walls -= 1
+                # Mise à jour du plateau selon l'action du joueur (déplacement ou mur)
+                if message_recu.startswith("MOVE:"):
+                    coordonnees = message_recu.split(":")[1].split(",")
+                    jeu.position_joueur = (int(coordonnees[0]), int(coordonnees[1]))
+                    
+                elif message_recu.startswith("MUR:"):
+                    informations = message_recu.split(":")[1].split(",")
+                    ligne_mur, colonne_mur, orientation = int(informations[0]), int(informations[1]), informations[2]
+                    
+                    if orientation == "H":
+                        jeu.murs_horizontaux.add((ligne_mur, colonne_mur))
+                    else:
+                        jeu.murs_verticaux.add((ligne_mur, colonne_mur))
+                    jeu.murs_joueur -= 1
                 
-                if jeu.joueur_pos[0] == 0:
-                    print(" LE JOUEUR A GAGNÉ !")
+                # Arrêt de la partie si le joueur atteint son objectif
+                if jeu.position_joueur[0] == 0:
+                    print("Le Joueur remporte la session de calcul.")
                     break 
                 
-                print("L'IA réfléchit...")
-                # L'appel au cerveau
+                # Lancement de l'algorithme pour déterminer le meilleur coup de l'IA
+                print("L'algorithme lance une sequence d'evaluation...")
                 score, coup_choisi = minimax(jeu, PROFONDEUR_MINIMAX, float('-inf'), float('inf'), True)
                 
+                # Coup de sécurité si l'arbre de recherche ne renvoie aucune solution
                 if coup_choisi is None:
-                    coup_choisi = ("MOVE", jeu.ia_pos[0] + 1, jeu.ia_pos[1])
+                    coup_choisi = ("MOVE", jeu.position_ia[0] + 1, jeu.position_ia[1]) 
 
-                # Jouer et répondre
+                # Formatage et exécution de l'action choisie par l'IA
                 reponse = ""
                 if coup_choisi[0] == "MOVE":
-                    jeu.ia_pos = (coup_choisi[1], coup_choisi[2])
-                    reponse = f"MOVE:{jeu.ia_pos[0]},{jeu.ia_pos[1]}\n"
+                    jeu.position_ia = (coup_choisi[1], coup_choisi[2])
+                    reponse = f"MOVE:{jeu.position_ia[0]},{jeu.position_ia[1]}\n"
+                    
                 elif coup_choisi[0] == "WALL":
-                    orientation, l_mur, c_mur = coup_choisi[1], coup_choisi[2], coup_choisi[3]
-                    if orientation == "H": jeu.horizontal_walls.add((l_mur, c_mur))
-                    else: jeu.vertical_walls.add((l_mur, c_mur))
-                    jeu.ia_walls -= 1
-                    reponse = f"MUR:{l_mur},{c_mur},{orientation}\n"
+                    orientation, ligne_mur, colonne_mur = coup_choisi[1], coup_choisi[2], coup_choisi[3]
+                    
+                    if orientation == "H": 
+                        jeu.murs_horizontaux.add((ligne_mur, colonne_mur))
+                    else: 
+                        jeu.murs_verticaux.add((ligne_mur, colonne_mur))
+                    jeu.murs_ia -= 1
+                    reponse = f"MUR:{ligne_mur},{colonne_mur},{orientation}\n"
                 
-                print(f"L'IA joue : {reponse.strip()}")
-                conn.sendall(reponse.encode('utf-8'))
+                # Transmission de la décision au client Java
+                print(f"Action emise: {reponse.strip()}")
+                connexion.sendall(reponse.encode('utf-8'))
 
-                if jeu.ia_pos[0] == 8:
-                    print(" L'IA A GAGNÉ !")
+                # Arrêt de la partie si l'IA atteint son objectif
+                if jeu.position_ia[0] == 8:
+                    print("L'IA a franchi la ligne d'arrivée")
                     break
 
+# Lancement automatique du script
 if __name__ == "__main__":
-    start_server()
+    demarrer_serveur()
