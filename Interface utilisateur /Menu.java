@@ -1,5 +1,6 @@
 package com.quoridor;
 
+// Importation des bibliothèques JavaFX nécessaires pour l'interface graphique.
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -17,138 +18,163 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+// Classe principale gérant le menu de lancement du jeu Quoridor.
 public class Menu extends Application {
 
-    @Override
-    public void start(Stage stage) {
+    // Méthode de démarrage appelée automatiquement par JavaFX.
+    public void start(Stage fenetre) {
+
+        // Initialisation de l'étiquette contenant le titre du jeu.
         Label titre = new Label("Quoridor");
         titre.setFont(Font.font("Century Gothic", javafx.scene.text.FontPosture.ITALIC, 55));
         titre.setTextFill(Color.WHITE);
 
-        DropShadow glow = new DropShadow();
-        glow.setColor(Color.web("#000000")); 
-        titre.setEffect(glow); 
+        // Ajout d'une ombre portée pour donner du relief au titre.
+        DropShadow eclat = new DropShadow();
+        eclat.setColor(Color.web("#000000")); 
+        titre.setEffect(eclat); 
 
+        // Création des boutons de navigation via la méthode utilitaire.
         Button boutonJouer = creerBouton("NOUVELLE PARTIE");
         Button boutonQuitter = creerBouton("QUITTER");
 
-        VBox menuRoot = new VBox(40); 
-        menuRoot.setAlignment(Pos.CENTER);
-        menuRoot.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 80%, #a71919, #a71919);");
-        menuRoot.getChildren().addAll(titre, boutonJouer, boutonQuitter);
+        // Conteneur vertical pour centrer le titre et les boutons de menu.
+        VBox racineMenu = new VBox(40); 
+        racineMenu.setAlignment(Pos.CENTER);
+        racineMenu.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 80%, #a71919, #a71919);");
+        racineMenu.getChildren().addAll(titre, boutonJouer, boutonQuitter);
 
--
+        // Configuration du bouton d'affichage des règles.
         Button boutonRegles = new Button("⚙️");
-        boutonRegles.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 28px; -fx-cursor: hand;");
+        boutonRegles.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 40px; -fx-cursor: hand;");
         
+        // Agrandissement du bouton des règles lors du survol de la souris.
         boutonRegles.setOnMouseEntered(e -> { boutonRegles.setScaleX(1.2); boutonRegles.setScaleY(1.2); });
         boutonRegles.setOnMouseExited(e -> { boutonRegles.setScaleX(1.0); boutonRegles.setScaleY(1.0); });
-        boutonRegles.setOnAction(e -> afficherRegles(stage));
+        boutonRegles.setOnAction(e -> afficherRegles(fenetre));
 
+        // Superposition des éléments avec le bouton d'options placé en haut à droite.
         StackPane calquePrincipal = new StackPane();
-        calquePrincipal.getChildren().addAll(menuRoot, boutonRegles);
+        calquePrincipal.getChildren().addAll(racineMenu, boutonRegles);
         StackPane.setAlignment(boutonRegles, Pos.TOP_RIGHT);
         StackPane.setMargin(boutonRegles, new Insets(10));
 
+        // Définition de la scène principale du menu.
         Scene sceneMenu = new Scene(calquePrincipal, 600, 450);
 
-
+        // Action déclenchée lors du clic sur le bouton pour jouer.
         boutonJouer.setOnAction(event -> {
             boutonJouer.setText("CHARGEMENT...");
-            menuRoot.setDisable(true);
+            racineMenu.setDisable(true);
 
- 
+            // Mise en place d'une courte pause pour laisser l'interface se mettre à jour.
             PauseTransition pause = new PauseTransition(Duration.seconds(0.1));
             pause.setOnFinished(e -> {
-    
-                Moteur monMoteur = new Moteur();
-                Plateau monPlateau = new Plateau();
-                // Le contrôleur s'occupe de lancer Python, lier la vue et mémoriser le jeu
-                ControleurJeu controleur = new ControleurJeu(monPlateau, monMoteur); 
-                Scene sceneJeu = new Scene(monPlateau, 800, 700);
-                stage.setScene(sceneJeu);
-                stage.setTitle("Quoridor - Contre l'IA Minimax");
-                stage.centerOnScreen(); 
+                
+                // Initialisation de l'architecture du jeu selon le modèle MVC.
+                Moteur moteur = new Moteur();
+                Plateau vuePlateau = new Plateau();
+                ControleurJeu controleur = new ControleurJeu(moteur, vuePlateau);
+
+                // Préparation de la scène de jeu et application à la fenêtre.
+                StackPane racineJeu = new StackPane(vuePlateau);
+                racineJeu.setStyle("-fx-padding: 20; -fx-background-color: #222;");
+                Scene sceneJeu = new Scene(racineJeu);
+
+                fenetre.setScene(sceneJeu);
+                fenetre.setTitle("Quoridor - En jeu");
+                fenetre.centerOnScreen(); 
             });
-            
             pause.play(); 
         });
 
+        // Fermeture de l'application lors du clic sur le bouton quitter.
         boutonQuitter.setOnAction(event -> Platform.exit());
 
-
-        stage.setTitle("Quoridor - Projet PRO3600");
-        stage.setResizable(false);
-        stage.setScene(sceneMenu);
-        stage.show();
+        // Configuration finale de la fenêtre principale.
+        fenetre.setTitle("Quoridor");
+        fenetre.setResizable(false);
+        fenetre.setScene(sceneMenu);
+        fenetre.setMaximized(true);
+        fenetre.show();
     }
 
-    private void afficherRegles(Stage parentStage) {
+    // Méthode gérant l'affichage de la fenêtre secondaire contenant les règles.
+    private void afficherRegles(Stage fenetreParente) {
         Stage fenetreRegles = new Stage();
         fenetreRegles.initModality(Modality.APPLICATION_MODAL); 
-        fenetreRegles.initOwner(parentStage);
-        fenetreRegles.setTitle("Règles du Quoridor");
+        fenetreRegles.initOwner(fenetreParente);
+        fenetreRegles.setTitle("Options");
 
-        VBox layout = new VBox(15);
-        layout.setPadding(new Insets(25));
-        layout.setStyle("-fx-background-color: #1a1a1a;"); 
-        layout.setAlignment(Pos.CENTER);
+        // Conteneur vertical pour le texte des règles.
+        VBox miseEnPage = new VBox(15);
+        miseEnPage.setPadding(new Insets(25));
+        miseEnPage.setStyle("-fx-background-color: #1a1a1a;"); 
+        miseEnPage.setAlignment(Pos.CENTER);
 
-        Label titre = new Label(" Comment jouer ?");
+        // Titre de la fenêtre des règles.
+        Label titre = new Label("Comment jouer ?");
         titre.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: white;");
 
+        // Corps du texte expliquant les commandes du jeu.
         Label texte = new Label(
-            " Déplacement : Clic gauche sur une case (ou point vert).\n" +
-            " Mur Vertical : Clic gauche sur l'espace à DROITE d'une case.\n" +
-            " Mur Horizontal : Clic gauche sur l'espace en DESSOUS d'une case.\n\n" +
-            " Il est strictement interdit d'enfermer totalement l'adversaire !\n\n" +
-            " Saut : Si l'adversaire est devant vous, cliquez sur la case derrière lui pour sauter."
+            "• Déplacement : Clic sur une case en bois.\n" +
+            "• Mur Vertical : Clic sur l'espace vertical entre les cases.\n" +
+            "• Mur Horizontal : Clic sur l'espace horizontal entre les cases."
         );
         texte.setStyle("-fx-font-size: 14px; -fx-text-fill: #cccccc; -fx-line-spacing: 0.5em;");
         texte.setWrapText(true);
 
-        Button btnOk = new Button("FERMER");
-        btnOk.setStyle("-fx-background-color: #a71919; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 20; -fx-background-radius: 15;");
-        btnOk.setOnAction(e -> fenetreRegles.close());
+        // Bouton de fermeture de la fenêtre des règles.
+        Button boutonOk = new Button("FERMER");
+        boutonOk.setStyle("-fx-background-color: #a71919; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 20; -fx-background-radius: 15;");
+        boutonOk.setOnAction(e -> fenetreRegles.close());
 
-        layout.getChildren().addAll(titre, texte, btnOk);
-        Scene scene = new Scene(layout, 420, 320);
+        // Ajout des éléments au conteneur puis affichage.
+        miseEnPage.getChildren().addAll(titre, texte, boutonOk);
+
+        Scene scene = new Scene(miseEnPage, 420, 320);
         fenetreRegles.setScene(scene);
         fenetreRegles.setResizable(false);
         fenetreRegles.showAndWait();
     }
-
+    
+    // Méthode utilitaire pour générer des boutons avec un style graphique unifié.
     private Button creerBouton(String texte) {
-        Button btn = new Button(texte);
+        Button bouton = new Button(texte);
         String styleNormal = "-fx-background-color: linear-gradient(#000000, #000000); -fx-background-radius: 30; -fx-text-fill: white; -fx-font-family: 'Arial'; -fx-font-weight: bold; -fx-font-size: 18px; -fx-padding: 12 40; -fx-cursor: hand;";
-        String styleHover = "-fx-background-color: linear-gradient(#1f3b58, #0a1118); -fx-background-radius: 30; -fx-text-fill: white; -fx-font-family: 'Arial'; -fx-font-weight: bold; -fx-font-size: 18px; -fx-padding: 12 40; -fx-cursor: hand;";
+        String styleSurvol = "-fx-background-color: linear-gradient(#1f3b58, #0a1118); -fx-background-radius: 30; -fx-text-fill: white; -fx-font-family: 'Arial'; -fx-font-weight: bold; -fx-font-size: 18px; -fx-padding: 12 40; -fx-cursor: hand;";
 
-        btn.setStyle(styleNormal);
+        bouton.setStyle(styleNormal);
 
-        DropShadow shadow = new DropShadow();
-        shadow.setColor(Color.grayRgb(0, 0.4));
-        shadow.setOffsetY(4);
-        btn.setEffect(shadow);
+        // Création d'une ombre portée sous le bouton.
+        DropShadow ombre = new DropShadow();
+        ombre.setColor(Color.grayRgb(0, 0.4));
+        ombre.setOffsetY(4);
+        bouton.setEffect(ombre);
 
-        btn.setOnMouseEntered(e -> {
-            if (!btn.isDisabled()) {
-                btn.setStyle(styleHover);
-                btn.setScaleX(1.05); 
-                btn.setScaleY(1.05);
+        // Animation d'agrandissement et changement de couleur au survol.
+        bouton.setOnMouseEntered(e -> {
+            if (!bouton.isDisabled()) {
+                bouton.setStyle(styleSurvol);
+                bouton.setScaleX(1.05); 
+                bouton.setScaleY(1.05);
             }
         });
 
-        btn.setOnMouseExited(e -> {
-            if (!btn.isDisabled()) {
-                btn.setStyle(styleNormal);
-                btn.setScaleX(1.0); 
-                btn.setScaleY(1.0);
+        // Retour à l'état normal lorsque la souris quitte le bouton.
+        bouton.setOnMouseExited(e -> {
+            if (!bouton.isDisabled()) {
+                bouton.setStyle(styleNormal);
+                bouton.setScaleX(1.0); 
+                bouton.setScaleY(1.0);
             }
         });
 
-        return btn;
+        return bouton;
     }
 
+    // Point d'entrée de l'application JavaFX.
     public static void main(String[] args) {
         launch(args);
     }
