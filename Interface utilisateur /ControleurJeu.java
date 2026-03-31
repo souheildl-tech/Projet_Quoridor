@@ -1,196 +1,246 @@
 package com.quoridor;
 
-import javafx.application.Platform;
+// Importe les outils de gestion de la souris et de l'interface graphique
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.shape.Circle;
+import javafx.scene.paint.Color;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
 
+// Fait le lien entre les règles mathématiques (Moteur) et l'affichage (Plateau)
 public class ControleurJeu {
+    
+    // Éléments principaux de l'architecture du jeu
+    private Moteur moteur;
     private Plateau vue;
-    private Moteur modele;
     private QuoridorClient clientPython;
-    private Process pythonProcess;
+    private Process processusPython;
+    
+    // Bloque les actions du joueur quand c'est le tour de l'IA
+    private boolean tourIA = false;
+    
+    // Représentations visuelles des deux joueurs
+    private Circle pionBlancVisuel;
+    private Circle pionNoirVisuel;
 
-    public ControleurJeu(Plateau vue, Moteur modele) {
+    // Prépare le contrôleur et lance le serveur IA au démarrage
+    public ControleurJeu(Moteur moteur, Plateau vue) {
+        this.moteur = moteur;
         this.vue = vue;
-        this.modele = modele;
         
-        initialiserProcessusPython();
-        initialiserReseau();
-        initialiserAffichageDepart();
-        attacherEcouteurs();
-    }
+        // Place les pions de départ sur le plateau avec leurs couleurs respectives
+        pionBlancVisuel = vue.creerPionVisuel(moteur.pionBlancLigne, moteur.pionBlancCol, Color.web("#eec273")); 
+        pionNoirVisuel = vue.creerPionVisuel(moteur.pionNoirLigne, moteur.pionNoirCol, Color.web("#FF69B4"));   
 
-    private void initialiserProcessusPython() {
+        // Démarre automatiquement le script Python en arrière-plan
         try {
             System.out.println("Lancement automatique du serveur Python...");
-            // Modifié pour un chemin relatif plus propre
-            ProcessBuilder pb = new ProcessBuilder("python3", "serveur.py");
-            pb.redirectErrorStream(true);
-            pythonProcess = pb.start();
+            ProcessBuilder constructeurProcessus = new ProcessBuilder("python3", "/home/djali/Projet_quoridor/serveur.py");
+            constructeurProcessus.redirectErrorStream(true);
+            processusPython = constructeurProcessus.start();
             Thread.sleep(1500); 
-        } catch (Exception e) {
-            System.err.println("Erreur : Impossible de lancer python3 !");
+        } catch (Exception erreur) {
+            erreur.printStackTrace();
         }
-    }
 
-    private void initialiserReseau() {
+        // Connecte le jeu Java au cerveau Python via le réseau local
         try {
             clientPython = new QuoridorClient();
-            clientPython.startConnection("127.0.0.1", 65432);
-            System.out.println("Connecté au Cerveau Python !");
-        } catch (Exception e) {
-            System.err.println("ERREUR : Impossible de se connecter à Python.");
+            clientPython.demarrerConnexion("127.0.0.1", 65432);
+        } catch (Exception erreur) {
+            erreur.printStackTrace();
         }
+        
+        // Active les clics de souris et affiche les premiers coups possibles
+        ajouterEcouteurSouris();
+        montrerIndicateurs();
     }
 
-    private void initialiserAffichageDepart() {
-        vue.placerPionVisuel(8, 4, javafx.scene.paint.Color.WHITE);
-        vue.placerPionVisuel(0, 4, javafx.scene.paint.Color.BLACK);
-        vue.mettreAJourMurs(true, modele.getMursJoueur());
-        vue.mettreAJourMurs(false, modele.getMursIA());
-        calculerEtAfficherIndicateurs();
-    }
-
-    private void attacherEcouteurs() {
-        vue.getZoneJeu().setOnMouseClicked(event -> {
-            if (modele.isPartieTerminee() || modele.isTourIA()) return; 
+    // Définit ce qu'il se passe quand le joueur clique sur le plateau
+    private void ajouterEcouteurSouris() {
+        vue.getZoneJeu().setOnMouseClicked(evenement -> {
+            
+            // Ignore le clic si la partie est finie ou si l'IA réfléchit
+            if (moteur.partieTerminee || tourIA) return; 
             
             vue.cacherIndicateurs();
 
-            // 1. Récupération des coordonnées exactes en pixels
-            double x = event.getX();
-            double y = event.getY();
-            int tailleBloc = Plateau.TAILLE_CASE + Plateau.ESPACE_MUR;
+            // Calcule sur quelle ligne et colonne le clic a eu lieu
+            double positionX = evenement.getX();
+            double positionY = evenement.getY();
+            int tailleBloc = vue.TAILLE_CASE + vue.ESPACE_MUR; 
+            int colonneClic = (int) (positionX / tailleBloc);
+            int ligneClic = (int) (positionY / tailleBloc);
             
-            // 2. Calcul de la case logique (0 à 8)
-            int colClic = (int) (x / tailleBloc);
-            int ligClic = (int) (y / tailleBloc);
-            
-            // 3. Calcul du reste (Modulo) pour la Hitbox interne
-            double resteX = x % tailleBloc;
-            double resteY = y % tailleBloc;
+            // Calcule où le clic a eu lieu précisément dans la case (pour les murs)
+            double resteX = positionX % tailleBloc;
+            double resteY = positionY % tailleBloc;
             
             String commandeAEnvoyer = null; 
-            
-            if (colClic >= 0 && colClic < Plateau.NB_CASES && ligClic >= 0 && ligClic < Plateau.NB_CASES) {
-                
-                if (event.getButton() == MouseButton.PRIMARY) {
+
+            // Vérifie que le clic est bien dans la grille avec le clic gauche
+            if (colonneClic >= 0 && colonneClic < moteur.NB_CASES && ligneClic >= 0 && ligneClic < moteur.NB_CASES) {
+                if (evenement.getButton() == MouseButton.PRIMARY) {
                     
-                    // DÉPLACEMENT
-                    if (resteX < Plateau.TAILLE_CASE && resteY < Plateau.TAILLE_CASE) {
-                        if (modele.estDeplacementValide(modele.getPionBlancLigne(), modele.getPionBlancCol(), ligClic, colClic)) {
-                            modele.majPositionBlanc(ligClic, colClic);
-                            vue.deplacerPionVisuel(true, ligClic, colClic);
-                            commandeAEnvoyer = "MOVE:" + ligClic + "," + colClic;
-                        } else {
-                            System.out.println(" Déplacement invalide !");
+                    int limiteMur = vue.TAILLE_CASE - 8; 
+
+                    // Cas 1 : Le joueur clique au centre d'une case pour se déplacer
+                    if (resteX < limiteMur && resteY < limiteMur) {
+                        if (moteur.estDeplacementValide(moteur.pionBlancLigne, moteur.pionBlancCol, ligneClic, colonneClic)) {
+                            // Met à jour la position mathématique et visuelle
+                            moteur.pionBlancLigne = ligneClic;
+                            moteur.pionBlancCol = colonneClic;
+                            pionBlancVisuel.setCenterX((colonneClic * tailleBloc) + (vue.TAILLE_CASE / 2.0));
+                            pionBlancVisuel.setCenterY((ligneClic * tailleBloc) + (vue.TAILLE_CASE / 2.0));
+                            commandeAEnvoyer = "MOVE:" + ligneClic + "," + colonneClic;
                         }
                     }
-                    
-                    // MUR VERTICAL
-                    else if (resteX >= Plateau.TAILLE_CASE && resteY < Plateau.TAILLE_CASE) {
-                        if (colClic < Plateau.NB_CASES - 1 && ligClic < Plateau.NB_CASES - 1) {
-                            if (modele.getMursJoueur() > 0 && modele.murEstValide(ligClic, colClic, false)) {
-                                modele.utiliserMurJoueur(ligClic, colClic, false);
-                                vue.placerMurVisuel(ligClic, colClic, false);
-                                vue.mettreAJourMurs(true, modele.getMursJoueur());
-                                commandeAEnvoyer = "MUR:" + ligClic + "," + colClic + ",V";
-                            } else {
-                                System.out.println("❌ Mur Vertical invalide ou enferme un joueur !");
+                    // Cas 2 : Le joueur clique sur la fente de droite pour poser un mur vertical
+                    else if (resteX >= limiteMur && resteY < limiteMur) {
+                        if (colonneClic < moteur.NB_CASES - 1 && ligneClic < moteur.NB_CASES - 1) {
+                            if (moteur.mursJoueur > 0 && moteur.murEstValide(ligneClic, colonneClic, false)) {
+                                // Ajoute le mur dans la logique, l'affiche, et réduit le stock
+                                moteur.mursPlaques.add(moteur.new MurLogique(ligneClic, colonneClic, false));
+                                vue.placerMurVisuel(ligneClic, colonneClic, false, Color.web("#eec273"));
+                                moteur.mursJoueur--;
+                                vue.mettreAJourMurs(vue.getConteneurMursJoueur(), moteur.mursJoueur);
+                                commandeAEnvoyer = "MUR:" + ligneClic + "," + colonneClic + ",V";
                             }
                         }
                     }
-                    
-                    // MUR HORIZONTAL
-                    else if (resteX < Plateau.TAILLE_CASE && resteY >= Plateau.TAILLE_CASE) {
-                        if (colClic < Plateau.NB_CASES - 1 && ligClic < Plateau.NB_CASES - 1) {
-                            if (modele.getMursJoueur() > 0 && modele.murEstValide(ligClic, colClic, true)) {
-                                modele.utiliserMurJoueur(ligClic, colClic, true);
-                                vue.placerMurVisuel(ligClic, colClic, true);
-                                vue.mettreAJourMurs(true, modele.getMursJoueur());
-                                commandeAEnvoyer = "MUR:" + ligClic + "," + colClic + ",H";
-                            } else {
-                                System.out.println(" Mur Horizontal invalide ou enferme un joueur !");
+                    // Cas 3 : Le joueur clique sur la fente du bas pour poser un mur horizontal
+                    else if (resteX < limiteMur && resteY >= limiteMur) {
+                        if (colonneClic < moteur.NB_CASES - 1 && ligneClic < moteur.NB_CASES - 1) {
+                            if (moteur.mursJoueur > 0 && moteur.murEstValide(ligneClic, colonneClic, true)) {
+                                // Ajoute le mur dans la logique, l'affiche, et réduit le stock
+                                moteur.mursPlaques.add(moteur.new MurLogique(ligneClic, colonneClic, true));
+                                vue.placerMurVisuel(ligneClic, colonneClic, true, Color.web("#eec273"));
+                                moteur.mursJoueur--;
+                                vue.mettreAJourMurs(vue.getConteneurMursJoueur(), moteur.mursJoueur);
+                                commandeAEnvoyer = "MUR:" + ligneClic + "," + colonneClic + ",H";
                             }
                         }
                     }
-                    // Le clic sur l'intersection des 4 cases (resteX >= 40 ET resteY >= 40) est volontairement ignoré.
                 }
             }
 
-            // 4. Envoi de l'action ou remise des indicateurs visuels
+            // Si le coup était valide, on l'envoie à l'IA après avoir vérifié la victoire
             if (commandeAEnvoyer != null) {
-                if (modele.verifierVictoireBlanc()) {
-                    System.out.println(" VICTOIRE !");
-                } else {
+                verifierVictoire();
+                if (!moteur.partieTerminee) {
                     envoyerAction(commandeAEnvoyer);
+                } else {
+                    montrerIndicateurs();
                 }
             } else {
-                calculerEtAfficherIndicateurs(); 
+                // Si le coup était invalide on remet les points verts
+                montrerIndicateurs();
             }
         });
     }
+
+    // Transmet l'action du joueur à l'IA et attend sa réponse
     private void envoyerAction(String messageComplet) {
-        modele.setTourIA(true);
+        tourIA = true;
+        System.out.println("Envoi au serveur : " + messageComplet);
+
+        // Lance un fil d'exécution séparé pour ne pas geler l'écran pendant le calcul
         new Thread(() -> {
             try {
-                String reponseIA = clientPython.sendMessage(messageComplet);
-                Platform.runLater(() -> traiterReponseIA(reponseIA));
-            } catch (Exception e) { e.printStackTrace(); }
+                String reponseIA = clientPython.envoyerMessage(messageComplet);
+                
+                // Met à jour l'interface graphique en toute sécurité une fois la réponse reçue
+                Platform.runLater(() -> {
+                    traiterReponseIA(reponseIA);
+                    tourIA = false;
+                    System.out.println("Au tour du joueur.");
+                });
+            } catch (Exception erreur) {
+                erreur.printStackTrace();
+            }
         }).start();
     }
 
+    // Analyse le texte reçu de l'IA et l'applique sur le plateau
     private void traiterReponseIA(String reponse) {
         if (reponse == null) return;
         String action = reponse.trim();
 
-        try {
-            if (action.startsWith("MOVE:")) {
-                String[] parts = action.split(":")[1].split(",");
-                int l = Integer.parseInt(parts[0]);
-                int c = Integer.parseInt(parts[1]);
+        // L'IA a choisi de déplacer son pion
+        if (action.startsWith("MOVE:")) {
+            try {
+                // Découpe le texte pour trouver les nouvelles coordonnées
+                String[] elements = action.split(":")[1].split(",");
+                int ligne = Integer.parseInt(elements[0]);
+                int colonne = Integer.parseInt(elements[1]);
                 
-                modele.majPositionNoir(l, c);
-                vue.deplacerPionVisuel(false, l, c);
+                // Met à jour le cerveau et l'affichage du pion adverse
+                moteur.pionNoirLigne = ligne;
+                moteur.pionNoirCol = colonne;
+                pionNoirVisuel.setCenterX((colonne * (vue.TAILLE_CASE + vue.ESPACE_MUR)) + (vue.TAILLE_CASE / 2.0));
+                pionNoirVisuel.setCenterY((ligne * (vue.TAILLE_CASE + vue.ESPACE_MUR)) + (vue.TAILLE_CASE / 2.0));
 
-                if (l == 8) {
-                    System.out.println(" L'IA A GAGNÉ !");
-                    modele.setPartieTerminee(true);
+                // Si l'IA atteint la ligne du bas, elle gagne
+                if (ligne == 8) {
+                    System.out.println("Victoire de l'adversaire constatée.");
+                    moteur.partieTerminee = true; 
+                    vue.afficherVictoireIA(); 
                 }
-            } else if (action.startsWith("MUR:")) {
-                String[] parts = action.split(":")[1].split(",");
-                int l = Integer.parseInt(parts[0]);
-                int c = Integer.parseInt(parts[1]);
-                boolean h = parts[2].equals("H");
                 
-                modele.utiliserMurIA(l, c, h);
-                vue.placerMurVisuel(l, c, h);
-                vue.mettreAJourMurs(false, modele.getMursIA());
-            }
-        } catch (Exception e) {
-            System.err.println("Erreur IA : " + action);
+                if (!moteur.partieTerminee) montrerIndicateurs(); 
+                
+            } catch (Exception erreur) {}
         }
-        
-        if (!modele.isPartieTerminee()) {
-            modele.setTourIA(false);
-            calculerEtAfficherIndicateurs();
+        // L'IA a choisi de bloquer avec un mur
+        else if (action.startsWith("MUR:")) {
+            try {
+                // Découpe le texte pour trouver où placer le mur
+                String[] elements = action.split(":")[1].split(",");
+                int ligne = Integer.parseInt(elements[0]);
+                int colonne = Integer.parseInt(elements[1]);
+                boolean estHorizontal = elements[2].equals("H");
+                
+                // Enregistre et dessine le mur adverse en rose
+                moteur.mursPlaques.add(moteur.new MurLogique(ligne, colonne, estHorizontal));
+                vue.placerMurVisuel(ligne, colonne, estHorizontal, Color.web("#FF69B4"));
+                
+                // Réduit le stock de l'IA et met à jour son interface
+                if (moteur.mursIA > 0) {
+                    moteur.mursIA--;
+                    vue.mettreAJourMurs(vue.getConteneurMursIA(), moteur.mursIA);
+                }
+                
+                if (!moteur.partieTerminee) montrerIndicateurs(); 
+                
+            } catch (Exception erreur) {}
         }
     }
 
-    private void calculerEtAfficherIndicateurs() {
+    // Vérifie si le joueur humain a atteint la ligne du haut
+    private void verifierVictoire() {
+        if (moteur.pionBlancLigne == 0) {
+            System.out.println("Victoire du joueur constatée.");
+            moteur.partieTerminee = true;
+            vue.afficherVictoireJoueur();
+        }
+    }
+
+    // Affiche les petits points verts autour du joueur pour l'aider
+    private void montrerIndicateurs() {
         vue.cacherIndicateurs();
         
-        int centreL = modele.getPionBlancLigne();
-        int centreC = modele.getPionBlancCol();
-
-        for (int l = centreL - 2; l <= centreL + 2; l++) {
-            for (int c = centreC - 2; c <= centreC + 2; c++) {
+        // Regarde seulement les cases proches pour éviter des calculs inutiles
+        for (int ligne = moteur.pionBlancLigne - 2; ligne <= moteur.pionBlancLigne + 2; ligne++) {
+            for (int colonne = moteur.pionBlancCol - 2; colonne <= moteur.pionBlancCol + 2; colonne++) {
                 
-                // Si la case est bien sur le plateau
-                if (l >= 0 && l < Plateau.NB_CASES && c >= 0 && c < Plateau.NB_CASES) {
-                    
-                    // On demande au modèle si le mouvement (classique ou saut) est légal
-                    if (modele.estDeplacementValide(centreL, centreC, l, c)) {
-                        vue.afficherIndicateur(l, c);
+                // Si la case est sur le plateau et atteignable selon les règles
+                if (ligne >= 0 && ligne < moteur.NB_CASES && colonne >= 0 && colonne < moteur.NB_CASES) {
+                    if (moteur.estDeplacementValide(moteur.pionBlancLigne, moteur.pionBlancCol, ligne, colonne)) {
+                        // Dessine l'indicateur
+                        vue.ajouterIndicateur(ligne, colonne);
                     }
                 }
             }
