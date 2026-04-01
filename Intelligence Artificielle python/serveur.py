@@ -1,7 +1,7 @@
 # Importation des modules réseau et de la logique de jeu
 import socket
 from moteur import EtatQuoridor
-from ia import minimax
+from minimax import minimax
 
 # Configuration de la connexion réseau et de la profondeur de réflexion
 HOTE = '127.0.0.1'
