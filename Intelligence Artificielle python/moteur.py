@@ -1,6 +1,9 @@
 # Importe la structure de file pour optimiser le calcul des chemins
 from collections import deque
 
+# Importe le module pour choisir un coup au hasard
+import random
+
 # Classe contenant l'état actuel du plateau
 class EtatQuoridor:
     
@@ -173,3 +176,41 @@ def annuler_coup(etat, coup, position_annulation, est_ia):
         
         if coup[1] == "H": etat.murs_horizontaux.remove((coup[2], coup[3]))
         else: etat.murs_verticaux.remove((coup[2], coup[3])) 
+
+
+# Crée une copie exacte et indépendante du plateau actuel
+def copier_etat(etat):
+    copie = EtatQuoridor()
+    copie.position_ia = etat.position_ia
+    copie.position_joueur = etat.position_joueur
+    copie.murs_ia = etat.murs_ia
+    copie.murs_joueur = etat.murs_joueur
+    copie.murs_horizontaux = set(etat.murs_horizontaux)
+    copie.murs_verticaux = set(etat.murs_verticaux)
+    return copie
+
+# Joue une partie complètement au hasard très rapidement pour voir qui gagne
+def jouer_partie_aleatoire(etat, tour_ia):
+    # Travaille sur un clone pour ne pas casser le vrai jeu
+    etat_simule = copier_etat(etat)
+    est_ia = tour_ia
+    
+    # Continue tant que personne n'a franchi sa ligne d'arrivée
+    while etat_simule.position_ia[0] != 8 and etat_simule.position_joueur[0] != 0:
+        # Récupère tous les choix possibles
+        coups = obtenir_coups_legaux(etat_simule, est_ia)
+        # Stoppe tout si quelqu'un est totalement bloqué
+        if not coups:
+            break
+            
+        # Pioche un coup totalement au hasard
+        coup_choisi = random.choice(coups)
+        # Joue le coup pioché
+        simuler_coup(etat_simule, coup_choisi, est_ia)
+        # Passe le tour à l'adversaire
+        est_ia = not est_ia
+        
+    # Renvoie 1 si l'IA gagne et 0 si le joueur gagne
+    if etat_simule.position_ia[0] == 8:
+        return 1
+    return 0
