@@ -2,6 +2,7 @@
 import socket
 from moteur import EtatQuoridor
 from minimax import minimax
+from mcts import mcts
 
 # Configuration de la connexion réseau et de la profondeur de réflexion
 HOTE = '127.0.0.1'
