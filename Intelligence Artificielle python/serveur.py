@@ -9,10 +9,16 @@ HOTE = '127.0.0.1'
 PORT = 65432
 PROFONDEUR_MINIMAX = 4
 
+# Interrupteur pour choisir le cerveau ("MINIMAX" ou "MCTS")
+ALGORITHME_CHOISI = "MCTS"
+# Temps accordé au MCTS pour réfléchir (en secondes)
+TEMPS_MCTS_SECONDES = 2.0
+
 # Initialisation du serveur et attente de la connexion client
 def demarrer_serveur():
     
     print(f"Demarrage de l'intelligence artificielle sur {HOTE}:{PORT}")
+    print(f"Algorithme actif : {ALGORITHME_CHOISI}")
     jeu = EtatQuoridor()
     
     # Configuration du socket pour écouter les requêtes Java
@@ -53,8 +59,13 @@ def demarrer_serveur():
                     break 
                 
                 # Lancement de l'algorithme pour déterminer le meilleur coup de l'IA
-                print("L'algorithme lance une sequence d'evaluation...")
-                score, coup_choisi = minimax(jeu, PROFONDEUR_MINIMAX, float('-inf'), float('inf'), True)
+                print(f"L'algorithme {ALGORITHME_CHOISI} lance une sequence d'evaluation...")
+
+                # Aiguillage vers le bon algorithme
+                if ALGORITHME_CHOISI == "MINIMAX":
+                    score, coup_choisi = minimax(jeu, PROFONDEUR_MINIMAX, float('-inf'), float('inf'), True)
+                else:
+                    coup_choisi = mcts(jeu, TEMPS_MCTS_SECONDES)
                 
                 # Coup de sécurité si l'arbre de recherche ne renvoie aucune solution
                 if coup_choisi is None:
