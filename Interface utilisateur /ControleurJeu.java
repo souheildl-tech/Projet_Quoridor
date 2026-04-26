@@ -27,7 +27,7 @@ public class ControleurJeu {
     private Circle pionNoirVisuel;
 
     // Prépare le contrôleur et lance le serveur IA au démarrage
-    public ControleurJeu(Moteur moteur, Plateau vue) {
+    public ControleurJeu(Moteur moteur, Plateau vue, String modeIA) {
         this.moteur = moteur;
         this.vue = vue;
         
@@ -50,6 +50,10 @@ public class ControleurJeu {
         try {
             clientPython = new QuoridorClient();
             clientPython.demarrerConnexion("127.0.0.1", 65432);
+            
+            // Envoie immédiatement le choix de l'adversaire au serveur
+            clientPython.envoyerMessage("MODE:" + modeIA);
+            
         } catch (Exception erreur) {
             erreur.printStackTrace();
         }
