@@ -37,6 +37,16 @@ def demarrer_serveur():
                     break
                 
                 message_recu = donnees.decode('utf-8').strip()
+                # Intercepte le message de configuration envoyé par le menu Java
+                if message_recu.startswith("MODE:"):
+                    # Modifie la variable globale pour utiliser le bon algorithme
+                    global ALGORITHME_CHOISI
+                    ALGORITHME_CHOISI = message_recu.split(":")[1]
+                    print(f"Le joueur a choisi d'affronter : {ALGORITHME_CHOISI}")
+                    # Envoie une confirmation pour débloquer l'attente de Java
+                    connexion.sendall(b"OK\n")
+                    # Repart au début de la boucle pour attendre le premier vrai coup
+                    continue
                 
                 # Mise à jour du plateau selon l'action du joueur (déplacement ou mur)
                 if message_recu.startswith("MOVE:"):
