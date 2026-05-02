@@ -38,7 +38,7 @@ public class ControleurJeu {
         // Démarre automatiquement le script Python en arrière-plan
         try {
             System.out.println("Lancement automatique du serveur Python...");
-            ProcessBuilder constructeurProcessus = new ProcessBuilder("python3", "/home/djali/Projet_quoridor/serveur.py");
+            ProcessBuilder constructeurProcessus = new ProcessBuilder("python3", "serveur.py");
             constructeurProcessus.redirectErrorStream(true);
             processusPython = constructeurProcessus.start();
             Thread.sleep(1500); 
