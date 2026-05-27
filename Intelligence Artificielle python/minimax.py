@@ -1,68 +1,70 @@
-# Importe les fonctions du moteur de jeu
+# Importation des dépendances externes issues du moteur logique pour la simulation des états
 from moteur import obtenir_longueur_chemin_court, obtenir_coups_legaux, simuler_coup, annuler_coup
 
-# Évalue l'avantage de l'IA sur le plateau actuel
+# Fonction d'évaluation heuristique quantifiant l'avantage stratégique de l'Intelligence Artificielle sur la configuration spatiale actuelle
 def evaluer_etat(etat):
-    # Calcule la distance restante pour chaque joueur
+    
+    # Détermination algorithmique de la distance minimale séparant chaque entité de son objectif de victoire
     distance_ia = obtenir_longueur_chemin_court(etat, etat.position_ia, 8)
     distance_joueur = obtenir_longueur_chemin_court(etat, etat.position_joueur, 0)
     
-    # Attribue un score extrême en cas de victoire ou défaite
+    # Attribution déterministe de valeurs terminales absolues en cas de condition de victoire ou de défaite immédiate
     if distance_ia == 0: return 1000
     if distance_joueur == 0: return -1000
     
-    # Le score favorise l'IA si elle avance vite tout en gardant ses murs en réserve
+    # Pondération mathématique favorisant la vélocité de l'IA tout en valorisant la conservation de son inventaire d'obstacles
     score = distance_joueur - distance_ia
     score += (etat.murs_ia - etat.murs_joueur) * 0.5
     
     return score
 
-# Algorithme Minimax anticipant les coups avec élagage Alpha-Beta
+# Implémentation récursive de l'algorithme Minimax optimisé par la technique d'élagage Alpha-Bêta pour la réduction de l'arbre de recherche
 def minimax(etat, profondeur, alpha, beta, est_joueur_maximisant):
-    # Stoppe la recherche si la profondeur max est atteinte ou la partie terminée
+    
+    # Condition d'arrêt interrompant l'exploration lors de l'atteinte de la profondeur maximale ou d'un état terminal du jeu
     if profondeur == 0 or etat.position_ia[0] == 8 or etat.position_joueur[0] == 0:
         return evaluer_etat(etat), None
 
     meilleur_coup = None
 
-    # Tour de l'IA cherchant à maximiser son propre score
+    # Branche de maximisation modélisant le comportement optimal de l'Intelligence Artificielle
     if est_joueur_maximisant: 
         evaluation_maximale = float('-inf')
         
-        # Simule chaque coup possible et évalue la réponse adverse
+        # Itération exhaustive sur le domaine des actions légales pour simuler les ramifications d'états virtuels
         for coup in obtenir_coups_legaux(etat, est_ia=True):
             information_annulation = simuler_coup(etat, coup, est_ia=True)
             score_evalue, _ = minimax(etat, profondeur - 1, alpha, beta, False)
             annuler_coup(etat, coup, information_annulation, est_ia=True)
             
-            # Sauvegarde la meilleure option trouvée
+            # Actualisation de la valeur maximale locale et mémorisation du vecteur d'action correspondant
             if score_evalue > evaluation_maximale:
                 evaluation_maximale = score_evalue
                 meilleur_coup = coup
             
-            # Optimisation Alpha-Beta pour ignorer les branches inutiles
+            # Application de la coupe Alpha-Bêta pour écarter mathématiquement les sous-arbres sous-optimaux
             alpha = max(alpha, score_evalue)
             if beta <= alpha:
                 break
                 
         return evaluation_maximale, meilleur_coup
 
-    # Tour du joueur cherchant à minimiser le score de l'IA
+    # Branche de minimisation modélisant la réponse antagoniste rationnelle du joueur humain
     else: 
         evaluation_minimale = float('inf')
         
-        # Simule chaque coup adverse et anticipe le pire scénario pour l'IA
+        # Projection des actions adverses légales pour identifier la séquence la plus pénalisante pour l'algorithme
         for coup in obtenir_coups_legaux(etat, est_ia=False):
             information_annulation = simuler_coup(etat, coup, est_ia=False)
             score_evalue, _ = minimax(etat, profondeur - 1, alpha, beta, True)
             annuler_coup(etat, coup, information_annulation, est_ia=False)
             
-            # Sauvegarde le coup adverse le plus pénalisant
+            # Actualisation de la valeur minimale locale et mémorisation de l'action adverse optimale
             if score_evalue < evaluation_minimale:
                 evaluation_minimale = score_evalue
                 meilleur_coup = coup
                 
-            # Optimisation Alpha-Beta pour couper court aux chemins désavantageux
+            # Ajustement de la borne Bêta et interruption prématurée de la boucle pour élaguer les branches stériles
             beta = min(beta, score_evalue)
             if beta <= alpha:
                 break
