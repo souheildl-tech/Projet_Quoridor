@@ -83,7 +83,7 @@ public class ControleurJeu {
             // Transmission du protocole d'initialisation au serveur pour configurer l'algorithme
             clientPython.envoyerMessage("MODE:" + modeIA + ":" + difficulte + ":" + this.premierJoueurActuel);
         } catch (Exception erreur) {
-            System.err.println("CRITIQUE : La connexion au cerveau Python a échoué !");
+            System.err.println("CRITIQUE : La connexion au serveur Python a échoué !");
             erreur.printStackTrace();
         }
         
