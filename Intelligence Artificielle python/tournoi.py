@@ -30,19 +30,15 @@ def ia_a_gagne(etat):
 
 
 def _flip_row(r):
-    """Transformation affine opérant une symétrie axiale sur l'axe des ordonnées de la matrice Quoridor"""
     return 8 - r
 
 def _flip_wall_h(murs_h):
-    """Transposition spatiale des obstacles horizontaux préservant la topologie du graphe inversé"""
     return {(7 - r, c) for r, c in murs_h}
 
 def _flip_wall_v(murs_v):
-    """Transposition spatiale des obstacles verticaux via projection sur la matrice miroir"""
     return {(7 - r, c) for r, c in murs_v}
 
 def _flip_etat(etat):
-    """Instanciation d'un état de jeu en miroir pour standardiser l'heuristique d'évaluation de l'IA"""
     from moteur import EtatQuoridor
     e = EtatQuoridor()
     
@@ -60,7 +56,6 @@ def _flip_etat(etat):
     return e
 
 def _unflip_coup(coup):
-    """Rétro-projection du vecteur d'action généré par l'espace en miroir vers le référentiel cartésien d'origine"""
     if coup is None:
         return None
         
@@ -72,13 +67,12 @@ def _unflip_coup(coup):
     elif coup[0] == "WALL":
         orient, r, c = coup[1], coup[2], coup[3]
         if orient == "H":
-            return ("WALL", "H", 7 - r, c)   
+            return ("MUR", "H", 7 - r, c)   
         else:
-            return ("WALL", "V", 7 - r, c)
+            return ("MUR", "V", 7 - r, c)
     return coup
 
 def ia_mcts(etat, est_ia, temps=1.0, ucb=1.5):
-    """Encapsulation de l'algorithme Monte-Carlo adaptant dynamiquement l'objectif topologique selon le rôle attribué"""
     if est_ia:
         return mcts(etat, temps_alloue_secondes=temps, constante_ucb=ucb)
     else:
@@ -88,7 +82,6 @@ def ia_mcts(etat, est_ia, temps=1.0, ucb=1.5):
 
 
 def ia_minimax(etat, est_ia, profondeur=3):
-    """Interface d'appel pour l'arbre de décision Minimax optimisé par la méthode d'élagage Alpha-Bêta"""
     _, coup = minimax(
         etat, profondeur,
         float('-inf'), float('inf'),
@@ -98,7 +91,6 @@ def ia_minimax(etat, est_ia, profondeur=3):
 
 
 def jouer_match(nom_a, ia_func_a, nom_b, ia_func_b, n=N_PARTIES):
-    """Moteur d'exécution asynchrone orchestrant les affrontements avec alternance stricte des rôles initiaux"""
     victoires_a = 0
     victoires_b = 0
     nuls = 0
@@ -194,14 +186,14 @@ def afficher_entete(titre):
     print("═" * 74)
 
 def run_duel(nom_a, func_a, nom_b, func_b, n=N_PARTIES):
-    print(f"\n  ▶ {nom_a}  vs  {nom_b}  ({n} parties)")
+    print(f"\n   {nom_a}  vs  {nom_b}  ({n} parties)")
     print("  " + "─" * 62)
     va, vb, nuls, ta, tb = jouer_match(nom_a, func_a, nom_b, func_b, n)
     p, sig, texte = test_binomial(va, vb)
     n_tot = va + vb + nuls
 
-    barre_a = "█" * int(100 * va / n_tot / 5) if n_tot else ""
-    barre_b = "█" * int(100 * vb / n_tot / 5) if n_tot else ""
+    barre_a = "" * int(100 * va / n_tot / 5) if n_tot else ""
+    barre_b = "" * int(100 * vb / n_tot / 5) if n_tot else ""
 
     print(f"  {'─'*62}")
     print(f"  Victoires A ({nom_a:<20}) : {va:3d} ({100*va/n_tot:5.1f}%)  {barre_a}")
@@ -213,15 +205,6 @@ def run_duel(nom_a, func_a, nom_b, func_b, n=N_PARTIES):
     resultats.append(dict(A=nom_a, B=nom_b, VA=va, VB=vb, Nuls=nuls,
                           TA=ta, TB=tb, p=p, sig=sig))
 
-
-# Définition des scénarios d'évaluation expérimentale
-
-
-# Protocole d'évaluation des performances algorithmiques selon la profondeur d'exploration de l'arbre
-# run_duel("Minimax p=3",
-#          lambda e, est_ia: ia_minimax(e, est_ia, profondeur=3),
-#          "Minimax p=4",
-#          lambda e, est_ia: ia_minimax(e, est_ia, profondeur=4))
 
 
 # Évaluation comparative directe opposant l'approche stochastique Monte-Carlo à l'approche déterministe Minimax
